@@ -1,0 +1,63 @@
+Visión artificial, Víctor Nathanael Badillo Aldama
+
+Segmentación del área mamaria en mamografía lateral
+
+1.- Introducción
+
+La mamografía es una técnica médica esencial para la detección temprana del cáncer de mama, utilizando rayos X de 
+baja dosis para capturar imágenes detalladas del tejido mamario. Estas imágenes son fundamentales para identificar 
+anomalías y apoyar el diagnóstico clínico. Dado su impacto en la salud, el desarrollo de métodos computacionales 
+para analizar mamografías de manera automática es un área activa de investigación en visión por computador.
+
+En este proyecto, nos centraremos en el análisis de mamografías laterales con dos objetivos principales:
+    
+    => Segmentación del área mamaria: Delimitar la región de interés correspondiente al tejido mamario, eliminando 
+       elementos no deseados, como la zona del músculo.
+    => Clasificación de la densidad del tejido: Clasificar el tejido mamario segmentado en una de las tres catego-
+       rías de densidad: glandular-denso, glandular-graso y graso.
+
+Estas tareas son cruciales para facilitar el diagnóstico médico y priorizar casos según su complejidad o riesgo. 
+El trabajo se basará en un subconjunto de imágenes del mini-MIAS database, una base de datos reconocida en este 
+campo.
+
+2. Esquema Global del Método
+
+    Descripción general del enfoque utilizado para resolver el problema.
+    Diagrama de flujo (si es útil para visualizar los pasos principales).
+
+3. Subproblemas y Soluciones
+3.1. Segmentación del área de tejido mamario
+
+    Problema identificado: Necesidad de eliminar la zona del músculo y segmentar el área relevante del tejido.
+    Metodologías consideradas:
+        Ejemplo: Umbralización, detección de bordes, segmentación basada en regiones.
+        Justificación de por qué se han probado estas técnicas.
+    Metodología seleccionada:
+        Detalle de la técnica implementada y su funcionamiento.
+        Resultados obtenidos y análisis (cuantitativo/cualitativo).
+
+3.2. Clasificación de la densidad del tejido mamario
+
+    Problema identificado: Clasificar el tejido en glandular-denso, glandular-graso y graso.
+    Metodologías consideradas:
+        Ejemplo: Modelos basados en aprendizaje automático (SVM, KNN) o métricas estadísticas.
+        Justificación de las opciones exploradas.
+    Metodología seleccionada:
+        Descripción de la técnica implementada y su justificación.
+        Resultados obtenidos y análisis (cuantitativo/cualitativo).
+
+4. Evaluación de Resultados
+
+    Resumen de los resultados obtenidos en ambas etapas del proyecto.
+    Comparación de resultados esperados frente a resultados reales.
+    Criterios de evaluación utilizados.
+
+5. Identificación de Problemas y Propuestas de Mejora
+
+    Problemas encontrados: Dificultades en el procesamiento o la clasificación.
+    Propuestas de mejora: Posibles cambios en las técnicas o herramientas que podrían optimizar los resultados.
+
+6. Conclusiones
+
+    Resumen de los logros alcanzados.
+    Implicaciones del trabajo realizado en el contexto de la detección del cáncer de mama.
