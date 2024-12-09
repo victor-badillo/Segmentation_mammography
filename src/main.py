@@ -14,12 +14,8 @@ def save_image(image_name, image):
     else:
         print(f"Error al guardar la imagen ==> {img_path}")
 
-def plot_histogram(imagen_path):
-    # Cargar la imagen en escala de grises
-    imagen = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
+def plot_histogram(imagen):
 
-    if imagen is None:
-        raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
 
     # Calcular el histograma de la imagen
     histograma = cv2.calcHist([imagen], [0], None, [256], [0, 256])
@@ -65,8 +61,14 @@ def process_images_in_directory(directory_path):
             plt.subplot(1, 3, 3), plt.title("Resultado Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
             plt.show()
 
-            # Guardar la imagen procesada (sin etiquetas)
-            save_image(f"sin_etiquetas_{filename}", sin_etiquetas)
+            img_sin_musculo, mascara_musculo = eliminar_musculo(sin_etiquetas)
+
+            # Mostrar resultados
+            plt.figure(figsize=(15, 10))
+            plt.subplot(1, 3, 1), plt.title("Imagen Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
+            plt.subplot(1, 3, 2), plt.title("Máscara del Músculo"), plt.imshow(mascara_musculo, cmap='gray')
+            plt.subplot(1, 3, 3), plt.title("Imagen Sin Músculo"), plt.imshow(img_sin_musculo, cmap='gray')
+            plt.show()
 
 def process_all_directories():
     # Recorrer todos los subdirectorios en el directorio base
@@ -105,6 +107,8 @@ def erase_labels(imagen):
 
     return sin_etiquetas
 
+
+
 if __name__ == "__main__":
 
     imagen_path = "data/Graso/mdb009.jpg"
@@ -116,4 +120,22 @@ if __name__ == "__main__":
     
     img_without_labels = erase_labels(image)
 
-    
+    visualize_image('sin_etiquetas', img_without_labels)
+
+    img_with_same_orientation = cv2.flip(img_without_labels, 1)  # 1 significa flip horizontal
+
+    visualize_image('mirror', img_with_same_orientation)
+
+    plt.figure(figsize=(30, 30))
+    plt.subplot(1, 3, 1), plt.title("Imagen sin etiquetas"), plt.imshow(img_without_labels, cmap='gray')
+    plt.subplot(1, 3, 2), plt.title("Ecualizada"), plt.imshow(img_with_same_orientation, cmap='gray')
+    plt.show()
+
+    # img_eq = cv2.equalizeHist(img_without_labels)
+
+    # visualize_image('eq', img_eq)
+
+    # plt.figure(figsize=(30, 30))
+    # plt.subplot(1, 3, 1), plt.title("Imagen sin etiquetas"), plt.imshow(img_without_labels, cmap='gray')
+    # plt.subplot(1, 3, 2), plt.title("Ecualizada"), plt.imshow(img_eq, cmap='gray')
+    # plt.show()
