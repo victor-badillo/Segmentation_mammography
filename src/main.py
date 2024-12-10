@@ -44,32 +44,34 @@ def process_images_in_directory(directory_path):
             if imagen is None:
                 print(f"No se pudo cargar la imagen en la ruta: {ruta_imagen}")
                 continue
+            
+            without_labels = pre_process(imagen)
 
-            # Umbralización usando Otsu para encontrar el umbral óptimo
-            _, binarizada = cv2.threshold(imagen, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # # Umbralización usando Otsu para encontrar el umbral óptimo
+            # _, binarizada = cv2.threshold(imagen, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-            # Operación de apertura morfológica para eliminar etiquetas
-            kernel_apertura = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))  # Ajusta el tamaño según el dataset
-            binarizada_sin_etiquetas = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_apertura)
+            # # Operación de apertura morfológica para eliminar etiquetas
+            # kernel_apertura = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))  # Ajusta el tamaño según el dataset
+            # binarizada_sin_etiquetas = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_apertura)
 
-            # Eliminar etiquetas usando bitwise_and
-            sin_etiquetas = cv2.bitwise_and(imagen, binarizada_sin_etiquetas)
+            # # Eliminar etiquetas usando bitwise_and
+            # sin_etiquetas = cv2.bitwise_and(imagen, binarizada_sin_etiquetas)
 
-            # Mostrar y guardar los resultados
-            plt.figure(figsize=(10, 10))
-            plt.subplot(1, 3, 1), plt.title("Imagen Original"), plt.imshow(imagen, cmap='gray')
-            plt.subplot(1, 3, 2), plt.title("Binarizada con Otsu"), plt.imshow(binarizada, cmap='gray')
-            plt.subplot(1, 3, 3), plt.title("Resultado Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-            plt.show()
+            # # Mostrar y guardar los resultados
+            # plt.figure(figsize=(10, 10))
+            # plt.subplot(1, 3, 1), plt.title("Imagen Original"), plt.imshow(imagen, cmap='gray')
+            # plt.subplot(1, 3, 2), plt.title("Binarizada con Otsu"), plt.imshow(binarizada, cmap='gray')
+            # plt.subplot(1, 3, 3), plt.title("Resultado Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
+            # plt.show()
 
-            img_sin_musculo, mascara_musculo = eliminar_musculo(sin_etiquetas)
+            # img_sin_musculo, mascara_musculo = eliminar_musculo(sin_etiquetas)
 
-            # Mostrar resultados
-            plt.figure(figsize=(15, 10))
-            plt.subplot(1, 3, 1), plt.title("Imagen Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-            plt.subplot(1, 3, 2), plt.title("Máscara del Músculo"), plt.imshow(mascara_musculo, cmap='gray')
-            plt.subplot(1, 3, 3), plt.title("Imagen Sin Músculo"), plt.imshow(img_sin_musculo, cmap='gray')
-            plt.show()
+            # # Mostrar resultados
+            # plt.figure(figsize=(15, 10))
+            # plt.subplot(1, 3, 1), plt.title("Imagen Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
+            # plt.subplot(1, 3, 2), plt.title("Máscara del Músculo"), plt.imshow(mascara_musculo, cmap='gray')
+            # plt.subplot(1, 3, 3), plt.title("Imagen Sin Músculo"), plt.imshow(img_sin_musculo, cmap='gray')
+            # plt.show()
 
 def process_all_directories():
     # Recorrer todos los subdirectorios en el directorio base
@@ -127,7 +129,12 @@ def keep_largest_object(binary_image):
 
 def pre_process(image):
 
-    _, binarizada = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    #_, binarizada = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, binarizada = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
+
+    kernel_separate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))  # Ajusta el tamaño según el dataset
+    binarizada = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_separate)
+
     sin_etiquetas = keep_largest_object(binarizada)
 
     clean =  cv2.bitwise_and(image, sin_etiquetas)
@@ -151,7 +158,7 @@ def pre_process(image):
 
 if __name__ == "__main__":
 
-    imagen_path = "data/Graso/mdb009.jpg"
+    imagen_path = "data/Glandular-graso/mdb045.jpg"
 
     image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
 
