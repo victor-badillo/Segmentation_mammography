@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from scipy.ndimage import label, find_objects
 
 OUTPUT_IMAGES = "resultados/"
 
@@ -108,6 +109,45 @@ def erase_labels(imagen):
     return sin_etiquetas
 
 
+def keep_largest_object(binary_image):
+    # Etiquetar componentes conectados
+    labeled_image, num_features = label(binary_image)
+    
+    # Encontrar el área de cada componente conectado
+    object_slices = find_objects(labeled_image)
+    areas = [np.sum(labeled_image[obj_slice] == label_id + 1) for label_id, obj_slice in enumerate(object_slices)]
+    
+    # Identificar el índice del componente más grande
+    largest_component_idx = np.argmax(areas) + 1  # Los índices empiezan en 1 para objetos etiquetados
+
+    # Crear una máscara con solo el objeto más grande
+    largest_object_mask = (labeled_image == largest_component_idx).astype(np.uint8)
+    
+    return largest_object_mask * 255
+
+def pre_process(image):
+
+    _, binarizada = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    sin_etiquetas = keep_largest_object(binarizada)
+
+    clean =  cv2.bitwise_and(image, sin_etiquetas)
+
+    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))  # Ajusta el tamaño según el dataset
+    clean_smooth = cv2.morphologyEx(sin_etiquetas, cv2.MORPH_OPEN, kernel_apertura)
+
+    smooth_final =  cv2.bitwise_and(image, clean_smooth)
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binarizada, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Sin etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Final"), plt.imshow(clean, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Binary Smooth"), plt.imshow(clean_smooth, cmap='gray')
+    plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(smooth_final, cmap='gray')
+    plt.show()
+
+    return smooth_final
+
 
 if __name__ == "__main__":
 
@@ -118,24 +158,6 @@ if __name__ == "__main__":
     if image is None:
         raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
     
-    img_without_labels = erase_labels(image)
 
-    visualize_image('sin_etiquetas', img_without_labels)
-
-    img_with_same_orientation = cv2.flip(img_without_labels, 1)  # 1 significa flip horizontal
-
-    visualize_image('mirror', img_with_same_orientation)
-
-    plt.figure(figsize=(30, 30))
-    plt.subplot(1, 3, 1), plt.title("Imagen sin etiquetas"), plt.imshow(img_without_labels, cmap='gray')
-    plt.subplot(1, 3, 2), plt.title("Ecualizada"), plt.imshow(img_with_same_orientation, cmap='gray')
-    plt.show()
-
-    # img_eq = cv2.equalizeHist(img_without_labels)
-
-    # visualize_image('eq', img_eq)
-
-    # plt.figure(figsize=(30, 30))
-    # plt.subplot(1, 3, 1), plt.title("Imagen sin etiquetas"), plt.imshow(img_without_labels, cmap='gray')
-    # plt.subplot(1, 3, 2), plt.title("Ecualizada"), plt.imshow(img_eq, cmap='gray')
-    # plt.show()
+    without_labels = pre_process(image)
+    visualize_image('without labels after preprocessing', without_labels)
