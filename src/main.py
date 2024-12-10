@@ -47,6 +47,8 @@ def process_images_in_directory(directory_path):
             
             without_labels = pre_process(imagen)
 
+            breast = breast_orientate(without_labels) 
+
             # # Umbralización usando Otsu para encontrar el umbral óptimo
             # _, binarizada = cv2.threshold(imagen, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
@@ -155,6 +157,74 @@ def pre_process(image):
 
     return smooth_final
 
+def adjust_image_orientation(image, original):
+    """
+    Ajusta la orientación de la imagen basado en la posición del primer píxel blanco desde la esquina superior izquierda.
+    Si el píxel blanco se encuentra en la segunda mitad de las columnas, se voltea la imagen horizontalmente.
+
+    Args:
+        image (np.ndarray): Imagen binaria en escala de grises.
+
+    Returns:
+        np.ndarray: Imagen ajustada.
+    """
+    rows, cols = image.shape
+    
+    # Recorrer la imagen desde arriba hacia abajo, izquierda a derecha
+    for row in range(rows):
+        for col in range(cols):
+            if image[row, col] == 255:  # Encontrar el primer píxel blanco
+                print(f"Primer píxel blanco encontrado en ({row}, {col})")
+                # Si el píxel está en la segunda mitad de las columnas, voltear la imagen
+                if col >= cols // 2:
+                    print("El píxel está en la segunda mitad, volteando la imagen.")
+                    return cv2.flip(original, 1)  # Voltear horizontalmente
+                else:
+                    print("El píxel está en la primera mitad, dejando la imagen como está.")
+                    return original
+
+    print("No se encontró ningún píxel blanco, devolviendo la imagen sin cambios.")
+    return original 
+
+
+def breast_orientate(without_labels):
+
+    # Binarizar y encontrar contornos
+    _, binary_image = cv2.threshold(without_labels, 1, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if len(contours) == 0:
+        print("No se encontraron contornos.")
+    else:
+        #Elegir el contorno más grande por área
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        #Crear una copia de la imagen para dibujar el contorno
+        contoured_image = np.zeros_like(without_labels)
+        cv2.drawContours(contoured_image, [largest_contour], -1, 255, 2)
+
+
+    # kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 100))
+    # vertical_lines = cv2.morphologyEx(contoured_image, cv2.MORPH_OPEN, kernel_vertical)
+    kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 400))
+    vertical_lines = cv2.erode(contoured_image, kernel_vertical)
+
+    breast_oriented = adjust_image_orientation(vertical_lines, without_labels)
+
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Sin etiquetas smooth"), plt.imshow(without_labels, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binary_image, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Contornos"), plt.imshow(contoured_image, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Linea vertical"), plt.imshow(vertical_lines, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Mama derecha"), plt.imshow(breast_oriented, cmap='gray')
+    plt.show()
+
+    return breast_oriented
+
+
+
+
 
 if __name__ == "__main__":
 
@@ -167,4 +237,15 @@ if __name__ == "__main__":
     
 
     without_labels = pre_process(image)
-    visualize_image('without labels after preprocessing', without_labels)
+    #En este punto tengo la imagen sin etiquetas
+
+    breast = breast_orientate(without_labels) 
+    #Mama en el mismo sentido para todas
+
+    
+
+
+
+    
+
+
