@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from scipy.ndimage import label, find_objects
+from skimage.segmentation import active_contour
+from skimage.draw import polygon
 
 OUTPUT_IMAGES = "resultados/"
 
@@ -31,6 +33,12 @@ def plot_histogram(imagen):
     plt.show()
 
 
+def visualize_image(title, image):
+    
+    cv2.imshow(title, image )
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
 
 def process_images_in_directory(directory_path):
     # Listar todas las imágenes en el directorio
@@ -47,33 +55,9 @@ def process_images_in_directory(directory_path):
             
             without_labels = pre_process(imagen)
 
-            breast = breast_orientate(without_labels) 
+            #breast = breast_orientate(without_labels) 
 
-            # # Umbralización usando Otsu para encontrar el umbral óptimo
-            # _, binarizada = cv2.threshold(imagen, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-            # # Operación de apertura morfológica para eliminar etiquetas
-            # kernel_apertura = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))  # Ajusta el tamaño según el dataset
-            # binarizada_sin_etiquetas = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_apertura)
-
-            # # Eliminar etiquetas usando bitwise_and
-            # sin_etiquetas = cv2.bitwise_and(imagen, binarizada_sin_etiquetas)
-
-            # # Mostrar y guardar los resultados
-            # plt.figure(figsize=(10, 10))
-            # plt.subplot(1, 3, 1), plt.title("Imagen Original"), plt.imshow(imagen, cmap='gray')
-            # plt.subplot(1, 3, 2), plt.title("Binarizada con Otsu"), plt.imshow(binarizada, cmap='gray')
-            # plt.subplot(1, 3, 3), plt.title("Resultado Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-            # plt.show()
-
-            # img_sin_musculo, mascara_musculo = eliminar_musculo(sin_etiquetas)
-
-            # # Mostrar resultados
-            # plt.figure(figsize=(15, 10))
-            # plt.subplot(1, 3, 1), plt.title("Imagen Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-            # plt.subplot(1, 3, 2), plt.title("Máscara del Músculo"), plt.imshow(mascara_musculo, cmap='gray')
-            # plt.subplot(1, 3, 3), plt.title("Imagen Sin Músculo"), plt.imshow(img_sin_musculo, cmap='gray')
-            # plt.show()
+            
 
 def process_all_directories():
     # Recorrer todos los subdirectorios en el directorio base
@@ -86,11 +70,7 @@ def process_all_directories():
             process_images_in_directory(subdir_path)
 
 
-def visualize_image(title, image):
-    
-    cv2.imshow(title, image )
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+
 
 def erase_labels(imagen):
     # Umbralización usando Otsu para encontrar el umbral óptimo
@@ -129,11 +109,15 @@ def keep_largest_object(binary_image):
     
     return largest_object_mask * 255
 
+
 def pre_process(image):
+
+    #Aumentar contraste para que otsu capture mejor las regiones
 
     #_, binarizada = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     _, binarizada = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
 
+    #SEAPARAR POSIBLES REGIONES UNIDAS
     kernel_separate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))  # Ajusta el tamaño según el dataset
     binarizada = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_separate)
 
@@ -141,7 +125,8 @@ def pre_process(image):
 
     clean =  cv2.bitwise_and(image, sin_etiquetas)
 
-    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))  # Ajusta el tamaño según el dataset
+    radius = 10  # Ajusta el radio según sea necesario
+    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
     clean_smooth = cv2.morphologyEx(sin_etiquetas, cv2.MORPH_OPEN, kernel_apertura)
 
     smooth_final =  cv2.bitwise_and(image, clean_smooth)
@@ -155,7 +140,10 @@ def pre_process(image):
     plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(smooth_final, cmap='gray')
     plt.show()
 
+
     return smooth_final
+
+
 
 def adjust_image_orientation(image, original):
     """
@@ -224,6 +212,146 @@ def breast_orientate(without_labels):
 
 
 
+def remove_empty_columns(image):
+    """
+    Elimina las columnas vacías (completamente negras) a la izquierda de la imagen.
+
+    Args:
+        image (np.ndarray): Imagen binaria.
+
+    Returns:
+        tuple: (np.ndarray, int) Imagen recortada y el número de columnas eliminadas.
+    """
+    # Encontrar las columnas que no son completamente negras
+    col_sums = np.sum(image, axis=0)
+    first_nonzero_col = np.argmax(col_sums > 0)  # Primera columna no vacía
+
+    # Recortar la imagen desde la primera columna no vacía
+    cropped_image = image[:, first_nonzero_col:]
+
+    return cropped_image, first_nonzero_col
+
+def apply_snake(image, columns_removed):
+    """
+    Ajusta un snake en forma de triángulo rectángulo para segmentar el músculo.
+
+    Args:
+        image (np.ndarray): Imagen binaria recortada.
+        columns_removed (int): Número de columnas eliminadas a la izquierda.
+
+    Returns:
+        np.ndarray: Máscara ajustada al músculo con las dimensiones originales.
+    """
+    # Dimensiones de la imagen recortada
+    rows, cols = image.shape
+
+    # Inicializar un triángulo rectángulo pequeño en la esquina superior izquierda
+    triangle = np.zeros_like(image, dtype=np.uint8)
+    
+    # Coordenadas del triángulo
+    r = [20, 20, 30]  # Filas: (20, 20) para el lado horizontal, y (30) para el lado vertical
+    c = [20, 30, 20]  # Columnas: (20, 30) para el lado horizontal, y (20) para el lado vertical
+    
+    # Generar la máscara inicial del triángulo
+    rr, cc = polygon(r, c)
+    triangle[rr, cc] = 1
+
+    # Visualización de la máscara inicial del triángulo (opcional, para depuración)
+    plt.imshow(triangle, cmap='gray')
+    plt.title("Triángulo inicial")
+    plt.show()
+
+    # Aplicar snake (Active Contour)
+    snake = active_contour(
+        image.astype(float),  # Imagen en escala de grises
+        snake=triangle.astype(float),  # Máscara inicial
+        alpha=0.1,  # Peso de suavidad
+        beta=0.5,  # Peso de rigidez
+        gamma=0.01,  # Velocidad de evolución
+    )
+
+    # Crear la máscara resultante con el snake
+    muscle_mask = np.zeros_like(image, dtype=np.uint8)
+    rr = np.round(snake[:, 0]).astype(int)
+    cc = np.round(snake[:, 1]).astype(int)
+
+    # Asegurar que los índices están dentro de los límites
+    rr = np.clip(rr, 0, rows - 1)
+    cc = np.clip(cc, 0, cols - 1)
+
+    muscle_mask[rr, cc] = 255
+
+    visualize_image('mascara',muscle_mask)
+
+    # Restaurar las dimensiones originales añadiendo columnas negras a la izquierda
+    original_shape = (image.shape[0], image.shape[1] + columns_removed)
+    muscle_mask_full = np.zeros(original_shape, dtype=np.uint8)
+    muscle_mask_full[:, columns_removed:] = muscle_mask
+
+    return muscle_mask_full
+
+
+def region_growing(image, seed_point, threshold=10):
+    """
+    Realiza segmentación por crecimiento de regiones a partir de un punto semilla.
+    
+    Args:
+        image (np.ndarray): Imagen en escala de grises.
+        seed_point (tuple): Punto inicial (fila, columna).
+        threshold (int): Diferencia máxima de intensidad para considerar homogeneidad.
+    
+    Returns:
+        np.ndarray: Máscara binaria con la región segmentada.
+    """
+    rows, cols = image.shape
+    segmented = np.zeros_like(image, dtype=np.uint8)
+    visited = np.zeros_like(image, dtype=bool)
+    seed_value = image[seed_point]
+    
+    # Usar una pila para el algoritmo iterativo
+    stack = [seed_point]
+    
+    while stack:
+        x, y = stack.pop()
+        
+        if visited[x, y]:
+            continue
+        
+        # Marcar como visitado
+        visited[x, y] = True
+        
+        # Agregar a la región si cumple el criterio
+        if abs(int(image[x, y]) - int(seed_value)) <= threshold:
+            segmented[x, y] = 255
+            
+            # Agregar vecinos válidos
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < rows and 0 <= ny < cols and not visited[nx, ny]:
+                    stack.append((nx, ny))
+    
+    return segmented
+
+def restore_columns(image, mask, columns_removed):
+    """
+    Restaura las columnas eliminadas a la izquierda de la imagen para devolver la máscara a las dimensiones originales.
+
+    Args:
+        image (np.ndarray): Imagen original sin etiquetas.
+        mask (np.ndarray): Máscara generada por region growing.
+        columns_removed (int): Número de columnas eliminadas inicialmente.
+
+    Returns:
+        np.ndarray: Máscara con las dimensiones originales restauradas.
+    """
+    # Crear una máscara del tamaño original, inicializada en negro
+    restored_mask = np.zeros_like(image, dtype=np.uint8)
+
+    # Insertar la máscara generada en la región correspondiente
+    restored_mask[:, columns_removed:] = mask
+
+    return restored_mask
+
 
 
 if __name__ == "__main__":
@@ -242,10 +370,36 @@ if __name__ == "__main__":
     breast = breast_orientate(without_labels) 
     #Mama en el mismo sentido para todas
 
+
+
+    cropped_breast, columns_removed = remove_empty_columns(breast)
+
+
+    seed_point = (30, 30) 
+    muscle_mask = region_growing(cropped_breast, seed_point, threshold=15)
+
+    muscle_mask = restore_columns(without_labels, muscle_mask, columns_removed)
+
+    #FALTA HACER UN TOP HAT, RELLENAR HUECOS Y APLANAR PICOS
+    ############
+    _, binary_orientated = cv2.threshold(breast, 1, 255, cv2.THRESH_BINARY)
+    without_muscle = np.clip(binary_orientated - muscle_mask, 0, 255).astype(np.uint8)
     
 
 
+    result = cv2.bitwise_and(breast, without_muscle)
 
+    
+
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Orientada"), plt.imshow(breast, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Cropedd"), plt.imshow(cropped_breast, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Muscle Mask"), plt.imshow(muscle_mask, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Without Muscle"), plt.imshow(without_muscle, cmap='gray')
+    plt.subplot(2, 4, 6), plt.title("Result"), plt.imshow(result, cmap='gray')
+    plt.show()
     
 
 
