@@ -39,6 +39,75 @@ def visualize_image(title, image):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+'''
+def perfil_muscle(without_muscle, mirrored):
+    
+    # 1. Binarización
+    _, binary = cv2.threshold(without_muscle, 1, 255, cv2.THRESH_BINARY)
+
+    # 2. Apertura morfológica para eliminar ruido pequeño y separar posibles regiones
+    radius = 10  # Ajusta el radio según sea necesario
+    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
+    clean_smooth = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel_apertura)
+
+    #Quedarse con al region mas grande de clean_smooth
+    largest = keep_largest_object(clean_smooth)
+
+    image = cv2.bitwise_and(without_muscle, largest)
+
+
+    if mirrored == True:
+        image = cv2.flip(image, 1)
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Mas grande"), plt.imshow(largest, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Resultado"), plt.imshow(image, cmap='gray')
+    plt.show()
+'''
+
+
+def perfil_muscle(without_muscle, mirrored):
+    
+    # 1. Binarización
+    _, binary = cv2.threshold(without_muscle, 1, 255, cv2.THRESH_BINARY)
+    binary = keep_largest_object(binary)
+
+    # 2. Apertura morfológica para eliminar ruido pequeño y separar posibles regiones
+    radius = 10  # Ajusta el radio según sea necesario
+    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
+    clean_smooth = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel_apertura)
+
+    # 3. Cerrar huecos (Closing)
+    radius = 20
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))
+    close = cv2.morphologyEx(clean_smooth, cv2.MORPH_CLOSE, kernel)
+
+    #Quedarse con al region mas grande de clean_smooth
+    largest = keep_largest_object(clean_smooth)
+    largest_close = keep_largest_object(close)
+
+    image = cv2.bitwise_and(without_muscle, largest)
+    close_image =  cv2.bitwise_and(without_muscle, largest_close)
+
+
+    if mirrored == True:
+        image = cv2.flip(image, 1)
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Close"), plt.imshow(close, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Mas grande"), plt.imshow(largest, cmap='gray')
+    plt.subplot(2, 4, 6), plt.title("Mas grande close"), plt.imshow(largest_close, cmap='gray')
+    plt.subplot(2, 4, 7), plt.title("Resultado"), plt.imshow(image, cmap='gray')
+    plt.subplot(2, 4, 8), plt.title("Resultado close"), plt.imshow(close_image, cmap='gray')
+    plt.show()
+
+
 
 def process_images_in_directory(directory_path):
     # Listar todas las imágenes en el directorio
@@ -55,22 +124,16 @@ def process_images_in_directory(directory_path):
             
             without_labels = pre_process(imagen)
 
-            breast = breast_orientate(without_labels) 
+            #breast = breast_orientate(without_labels) 
 
 
-            breast_gauss2 = breast_orientate(without_labels)
-            breast_gauss2 = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
+            breast_gauss2, mirrored = breast_orientate(without_labels)
+            breast_filter = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
 
-            # breast_eq = breast_orientate(without_labels)
-            # breast_eq = cv2.equalizeHist(breast_eq)
-
-            # breast_eq2 = breast_orientate(without_labels)
-            # smoothed = cv2.blur(breast_eq2, (15, 15)) 
-            # breast_eq2 = cv2.equalizeHist(smoothed)
             
+            without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
 
-            #final = substract_muscle(without_labels, breast, breast)
-            final2 = substract_muscle(without_labels, breast_gauss2, breast)
+            without_muscle_smooth = perfil_muscle(without_muscle, mirrored)
 
 
 
@@ -178,6 +241,7 @@ def adjust_image_orientation(image, original):
         np.ndarray: Imagen ajustada.
     """
     rows, cols = image.shape
+    mirrored = False
     
     # Recorrer la imagen desde arriba hacia abajo, izquierda a derecha
     for row in range(rows):
@@ -187,13 +251,14 @@ def adjust_image_orientation(image, original):
                 # Si el píxel está en la segunda mitad de las columnas, voltear la imagen
                 if col >= cols // 2:
                     print("El píxel está en la segunda mitad, volteando la imagen.")
-                    return cv2.flip(original, 1)  # Voltear horizontalmente
+                    mirrored = True
+                    return cv2.flip(original, 1), mirrored  # Voltear horizontalmente
                 else:
                     print("El píxel está en la primera mitad, dejando la imagen como está.")
-                    return original
+                    return original, mirrored
 
     print("No se encontró ningún píxel blanco, devolviendo la imagen sin cambios.")
-    return original 
+    return original, mirrored
 
 
 def breast_orientate(without_labels):
@@ -218,7 +283,7 @@ def breast_orientate(without_labels):
     kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 400))
     vertical_lines = cv2.erode(contoured_image, kernel_vertical)
 
-    breast_oriented = adjust_image_orientation(vertical_lines, without_labels)
+    breast_oriented, mirrored = adjust_image_orientation(vertical_lines, without_labels)
 
 
     # plt.figure(figsize=(20, 20))
@@ -229,7 +294,7 @@ def breast_orientate(without_labels):
     # plt.subplot(2, 4, 5), plt.title("Mama derecha"), plt.imshow(breast_oriented, cmap='gray')
     # plt.show()
 
-    return breast_oriented
+    return breast_oriented, mirrored
 
 
 
@@ -408,29 +473,26 @@ def substract_muscle(without_labels, breast, original):
 
 if __name__ == "__main__":
 
-    # imagen_path = "data/Glandular-graso/mdb045.jpg"
+    imagen_path = "data/Glandular-graso/mdb072.jpg"
 
-    # image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
+    image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
 
-    # if image is None:
-    #     raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
+    if image is None:
+        raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
     
 
     # without_labels = pre_process(image)
     # #En este punto tengo la imagen sin etiquetas
 
-    # breast = breast_orientate(without_labels) 
-    # #Mama en el mismo sentido para todas
 
-    # final = substract_muscle(without_labels, breast)
+    # breast_gauss2, mirrored = breast_orientate(without_labels)
+    # breast_filter = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
 
+            
+    # without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
 
-    # plt.figure(figsize=(20, 20))
-    # plt.subplot(1, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
-    # plt.subplot(1, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-    # plt.subplot(1, 4, 3), plt.title("Orientada"), plt.imshow(breast, cmap='gray')
-    # plt.subplot(1, 4, 4), plt.title("Final"), plt.imshow(final, cmap='gray')
-    # plt.show()
+    # without_muscle_smooth = perfil_muscle(without_muscle, mirrored)
+    
 
     process_all_directories()
 
