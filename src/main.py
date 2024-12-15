@@ -55,7 +55,26 @@ def process_images_in_directory(directory_path):
             
             without_labels = pre_process(imagen)
 
-            #breast = breast_orientate(without_labels) 
+            breast = breast_orientate(without_labels) 
+
+            breast_gauss = breast_orientate(without_labels)
+            smoothed = cv2.bilateralFilter(breast_gauss, d=25, sigmaColor=130, sigmaSpace=75)
+
+            # breast_eq = breast_orientate(without_labels)
+            # breast_eq = cv2.equalizeHist(breast_eq)
+
+            # breast_eq2 = breast_orientate(without_labels)
+            # smoothed = cv2.blur(breast_eq2, (15, 15)) 
+            # breast_eq2 = cv2.equalizeHist(smoothed)
+            
+
+            final = substract_muscle(without_labels, breast)
+
+            klk = substract_muscle(without_labels, smoothed)
+
+
+            # final_eq = substract_muscle(without_labels, breast_eq)
+            # final_eq = substract_muscle(without_labels, breast_eq2)
 
             
 
@@ -131,14 +150,14 @@ def pre_process(image):
 
     smooth_final =  cv2.bitwise_and(image, clean_smooth)
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binarizada, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Sin etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Final"), plt.imshow(clean, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Binary Smooth"), plt.imshow(clean_smooth, cmap='gray')
-    plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(smooth_final, cmap='gray')
-    plt.show()
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
+    # plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binarizada, cmap='gray')
+    # plt.subplot(2, 4, 3), plt.title("Sin etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
+    # plt.subplot(2, 4, 4), plt.title("Final"), plt.imshow(clean, cmap='gray')
+    # plt.subplot(2, 4, 5), plt.title("Binary Smooth"), plt.imshow(clean_smooth, cmap='gray')
+    # plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(smooth_final, cmap='gray')
+    # plt.show()
 
 
     return smooth_final
@@ -200,13 +219,13 @@ def breast_orientate(without_labels):
     breast_oriented = adjust_image_orientation(vertical_lines, without_labels)
 
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Sin etiquetas smooth"), plt.imshow(without_labels, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binary_image, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Contornos"), plt.imshow(contoured_image, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Linea vertical"), plt.imshow(vertical_lines, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Mama derecha"), plt.imshow(breast_oriented, cmap='gray')
-    plt.show()
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 4, 1), plt.title("Sin etiquetas smooth"), plt.imshow(without_labels, cmap='gray')
+    # plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binary_image, cmap='gray')
+    # plt.subplot(2, 4, 3), plt.title("Contornos"), plt.imshow(contoured_image, cmap='gray')
+    # plt.subplot(2, 4, 4), plt.title("Linea vertical"), plt.imshow(vertical_lines, cmap='gray')
+    # plt.subplot(2, 4, 5), plt.title("Mama derecha"), plt.imshow(breast_oriented, cmap='gray')
+    # plt.show()
 
     return breast_oriented
 
@@ -352,31 +371,13 @@ def restore_columns(image, mask, columns_removed):
 
     return restored_mask
 
-
-
-if __name__ == "__main__":
-
-    imagen_path = "data/Glandular-graso/mdb045.jpg"
-
-    image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
-
-    if image is None:
-        raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
-    
-
-    without_labels = pre_process(image)
-    #En este punto tengo la imagen sin etiquetas
-
-    breast = breast_orientate(without_labels) 
-    #Mama en el mismo sentido para todas
-
+def substract_muscle(without_labels, breast):
 
 
     cropped_breast, columns_removed = remove_empty_columns(breast)
 
-
     seed_point = (30, 30) 
-    muscle_mask = region_growing(cropped_breast, seed_point, threshold=15)
+    muscle_mask = region_growing(cropped_breast, seed_point, threshold=30)
 
     muscle_mask = restore_columns(without_labels, muscle_mask, columns_removed)
 
@@ -389,9 +390,6 @@ if __name__ == "__main__":
 
     result = cv2.bitwise_and(breast, without_muscle)
 
-    
-
-
     plt.figure(figsize=(20, 20))
     plt.subplot(2, 4, 1), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
     plt.subplot(2, 4, 2), plt.title("Orientada"), plt.imshow(breast, cmap='gray')
@@ -400,6 +398,40 @@ if __name__ == "__main__":
     plt.subplot(2, 4, 5), plt.title("Without Muscle"), plt.imshow(without_muscle, cmap='gray')
     plt.subplot(2, 4, 6), plt.title("Result"), plt.imshow(result, cmap='gray')
     plt.show()
+
+    return result
+
+
+
+
+if __name__ == "__main__":
+
+    # imagen_path = "data/Glandular-graso/mdb045.jpg"
+
+    # image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
+
+    # if image is None:
+    #     raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
     
 
+    # without_labels = pre_process(image)
+    # #En este punto tengo la imagen sin etiquetas
 
+    # breast = breast_orientate(without_labels) 
+    # #Mama en el mismo sentido para todas
+
+    # final = substract_muscle(without_labels, breast)
+
+
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(1, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
+    # plt.subplot(1, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
+    # plt.subplot(1, 4, 3), plt.title("Orientada"), plt.imshow(breast, cmap='gray')
+    # plt.subplot(1, 4, 4), plt.title("Final"), plt.imshow(final, cmap='gray')
+    # plt.show()
+
+    process_all_directories()
+
+
+
+ 
