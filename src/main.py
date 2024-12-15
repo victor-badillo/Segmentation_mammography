@@ -57,8 +57,9 @@ def process_images_in_directory(directory_path):
 
             breast = breast_orientate(without_labels) 
 
-            breast_gauss = breast_orientate(without_labels)
-            smoothed = cv2.bilateralFilter(breast_gauss, d=25, sigmaColor=130, sigmaSpace=75)
+
+            breast_gauss2 = breast_orientate(without_labels)
+            breast_gauss2 = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
 
             # breast_eq = breast_orientate(without_labels)
             # breast_eq = cv2.equalizeHist(breast_eq)
@@ -68,9 +69,10 @@ def process_images_in_directory(directory_path):
             # breast_eq2 = cv2.equalizeHist(smoothed)
             
 
-            final = substract_muscle(without_labels, breast)
+            #final = substract_muscle(without_labels, breast, breast)
+            final2 = substract_muscle(without_labels, breast_gauss2, breast)
 
-            klk = substract_muscle(without_labels, smoothed)
+
 
 
             # final_eq = substract_muscle(without_labels, breast_eq)
@@ -371,13 +373,13 @@ def restore_columns(image, mask, columns_removed):
 
     return restored_mask
 
-def substract_muscle(without_labels, breast):
+def substract_muscle(without_labels, breast, original):
 
 
     cropped_breast, columns_removed = remove_empty_columns(breast)
 
     seed_point = (30, 30) 
-    muscle_mask = region_growing(cropped_breast, seed_point, threshold=30)
+    muscle_mask = region_growing(cropped_breast, seed_point, threshold=35)
 
     muscle_mask = restore_columns(without_labels, muscle_mask, columns_removed)
 
@@ -388,7 +390,7 @@ def substract_muscle(without_labels, breast):
     
 
 
-    result = cv2.bitwise_and(breast, without_muscle)
+    result = cv2.bitwise_and(original, without_muscle)
 
     plt.figure(figsize=(20, 20))
     plt.subplot(2, 4, 1), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
