@@ -109,7 +109,7 @@ def perfil_muscle(without_muscle, mirrored):
 '''
 
 
-def perfil_muscle(without_muscle, mirrored):
+def perfil_muscle(without_muscle, mirrored, without_labels):
     
     # 1. Binarización
     _, binary = cv2.threshold(without_muscle, 1, 255, cv2.THRESH_BINARY)
@@ -128,20 +128,20 @@ def perfil_muscle(without_muscle, mirrored):
     #Quedarse con al region mas grande de clean_smooth
     largest_close = keep_largest_object(close)
 
-    close_image =  cv2.bitwise_and(without_muscle, largest_close)
-
-
     if mirrored == True:
-        close_image = cv2.flip(close_image, 1)
+        largest_close = cv2.flip(largest_close, 1)
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Close"), plt.imshow(close, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Mas grande close"), plt.imshow(largest_close, cmap='gray')
-    plt.subplot(2, 4, 6), plt.title("Resultado close"), plt.imshow(close_image, cmap='gray')
-    plt.show()
+    close_image =  cv2.bitwise_and(without_labels, largest_close)
+
+
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
+    # plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
+    # plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
+    # plt.subplot(2, 4, 4), plt.title("Close"), plt.imshow(close, cmap='gray')
+    # plt.subplot(2, 4, 5), plt.title("Mas grande close"), plt.imshow(largest_close, cmap='gray')
+    # plt.subplot(2, 4, 6), plt.title("Resultado close"), plt.imshow(close_image, cmap='gray')
+    # plt.show()
 
     return close_image, largest_close
 
@@ -171,41 +171,33 @@ def process_images_in_directory(directory_path):
             
             without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
 
-            without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored)
+            without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored,without_labels)
 
             surrounded_breast, _ = cv2.findContours(bin_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             largest_contour = max(surrounded_breast, key=cv2.contourArea)
-            #contoured_image = np.zeros_like(without_labels)
-            #cv2.drawContours(contoured_image, [largest_contour], -1, 255, 2)
-
-
 
             contoured_image  = cv2.cvtColor(imagen, cv2.COLOR_GRAY2BGR)
             cv2.drawContours(contoured_image , [largest_contour], -1, (255, 0, 0), 2) 
 
+            #CLASIFICAR
 
 
-            plt.figure(figsize=(20, 20))
-            plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(imagen, cmap='gray')
-            plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-            plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_gauss2, cmap='gray')
-            plt.subplot(2, 4, 4), plt.title("Filtro"), plt.imshow(breast_filter, cmap='gray')
-            plt.subplot(2, 4, 5), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
-            plt.subplot(2, 4, 6), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
-            plt.subplot(2, 4, 7), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
-            plt.subplot(2, 4, 8), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
-            plt.show()
-
-            plt.figure(figsize=(20, 20))
-            plt.subplot(1, 3, 1), plt.title("Original"), plt.imshow(imagen, cmap='gray')
-            plt.subplot(1, 3, 2), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
-            plt.subplot(1, 3, 3), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
-            plt.show()
+            
 
 
 
-            # final_eq = substract_muscle(without_labels, breast_eq)
-            # final_eq = substract_muscle(without_labels, breast_eq2)
+            # plt.figure(figsize=(20, 20))
+            # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(imagen, cmap='gray')
+            # plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
+            # plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_gauss2, cmap='gray')
+            # plt.subplot(2, 4, 4), plt.title("Filtro"), plt.imshow(breast_filter, cmap='gray')
+            # plt.subplot(2, 4, 5), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
+            # plt.subplot(2, 4, 6), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
+            # plt.subplot(2, 4, 7), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
+            # plt.subplot(2, 4, 8), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
+            # plt.show()
+
+            
 
             
 
@@ -523,14 +515,14 @@ def substract_muscle(without_labels, breast, original):
 
     result = cv2.bitwise_and(original, without_muscle)
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Orientada"), plt.imshow(breast, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Cropedd"), plt.imshow(cropped_breast, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Muscle Mask"), plt.imshow(muscle_mask, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Without Muscle"), plt.imshow(without_muscle, cmap='gray')
-    plt.subplot(2, 4, 6), plt.title("Result"), plt.imshow(result, cmap='gray')
-    plt.show()
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 4, 1), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
+    # plt.subplot(2, 4, 2), plt.title("Orientada"), plt.imshow(breast, cmap='gray')
+    # plt.subplot(2, 4, 3), plt.title("Cropedd"), plt.imshow(cropped_breast, cmap='gray')
+    # plt.subplot(2, 4, 4), plt.title("Muscle Mask"), plt.imshow(muscle_mask, cmap='gray')
+    # plt.subplot(2, 4, 5), plt.title("Without Muscle"), plt.imshow(without_muscle, cmap='gray')
+    # plt.subplot(2, 4, 6), plt.title("Result"), plt.imshow(result, cmap='gray')
+    # plt.show()
 
     return result
 
