@@ -3,8 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from scipy.ndimage import label, find_objects
-from skimage.segmentation import active_contour
-from skimage.draw import polygon
 from utilities import save_image
 
 
@@ -84,6 +82,95 @@ def remove_labels(image):
 
 
 
+def adjust_image_orientation(image, original):
+    """
+    Adjusts the orientation of the image based on the position of the first white pixel starting from the top-left corner.
+    If the white pixel is found in the second half of the columns, the image is flipped horizontally.
+
+    Args:
+        image (np.ndarray): Binary grayscale image.
+        original (np.ndarray): Original image to adjust.
+
+    Returns:
+        np.ndarray: Adjusted image.
+        bool: A flag indicating whether the image was mirrored (flipped horizontally).
+    """
+    rows, cols = image.shape
+    mirrored = False
+
+    #Traverse the image from top to bottom, left to right
+    for row in range(rows):
+        for col in range(cols):
+            if image[row, col] == 255:  # Find the first white pixel
+                print(f"First white pixel found at ({row}, {col})")
+                #If the pixel is in the second half of the columns, flip the image
+                if col >= cols // 2:
+                    print("The pixel is in the second half, flipping the image.")
+                    mirrored = True
+                    return cv2.flip(original, 1), mirrored  #Flip horizontally
+                else:
+                    print("The pixel is in the first half, keeping the image as is.")
+                    return original, mirrored
+
+    print("No white pixel was found, returning the image unchanged.")
+    return original, mirrored
+
+
+def breast_orientate(without_labels):
+    """
+    Orients a mammogram image by detecting the main breast region and adjusting its position.
+
+    Args:
+        without_labels (np.ndarray): Grayscale mammogram image without annotations.
+
+    Returns:
+        tuple:
+            - breast_oriented (np.ndarray): Oriented breast image.
+            - mirrored (bool): True if the image was flipped horizontally, False otherwise.
+    """
+
+    #Binarize and find contours
+    _, binary_image = cv2.threshold(without_labels, 1, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if len(contours) == 0:
+        print("No contours were found.")
+    else:
+        #Choose biggest contour
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        #Draw contour
+        contoured_image = np.zeros_like(without_labels)
+        cv2.drawContours(contoured_image, [largest_contour], -1, 255, 2)
+
+
+    #Keep vertical line next to muscle in mammography
+    kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 400))
+    vertical_lines = cv2.erode(contoured_image, kernel_vertical)
+
+    #Obtain breast oriented and a flag indicating if the image was mirrored
+    breast_oriented, mirrored = adjust_image_orientation(vertical_lines, without_labels)
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Without labels"), plt.imshow(without_labels, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Binarized"), plt.imshow(binary_image, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Contours"), plt.imshow(contoured_image, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Vertical line"), plt.imshow(vertical_lines, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Oriented breast"), plt.imshow(breast_oriented, cmap='gray')
+    plt.show()
+
+    return breast_oriented, mirrored
+
+
+
+
+
+
+
+
+
+
+
 
 def perfil_muscle(without_muscle, mirrored, without_labels):
     
@@ -123,75 +210,9 @@ def perfil_muscle(without_muscle, mirrored, without_labels):
 
 
 
-def adjust_image_orientation(image, original):
-    """
-    Ajusta la orientación de la imagen basado en la posición del primer píxel blanco desde la esquina superior izquierda.
-    Si el píxel blanco se encuentra en la segunda mitad de las columnas, se voltea la imagen horizontalmente.
-
-    Args:
-        image (np.ndarray): Imagen binaria en escala de grises.
-
-    Returns:
-        np.ndarray: Imagen ajustada.
-    """
-    rows, cols = image.shape
-    mirrored = False
-    
-    # Recorrer la imagen desde arriba hacia abajo, izquierda a derecha
-    for row in range(rows):
-        for col in range(cols):
-            if image[row, col] == 255:  # Encontrar el primer píxel blanco
-                print(f"Primer píxel blanco encontrado en ({row}, {col})")
-                # Si el píxel está en la segunda mitad de las columnas, voltear la imagen
-                if col >= cols // 2:
-                    print("El píxel está en la segunda mitad, volteando la imagen.")
-                    mirrored = True
-                    return cv2.flip(original, 1), mirrored  # Voltear horizontalmente
-                else:
-                    print("El píxel está en la primera mitad, dejando la imagen como está.")
-                    return original, mirrored
-
-    print("No se encontró ningún píxel blanco, devolviendo la imagen sin cambios.")
-    return original, mirrored
 
 
-def breast_orientate(without_labels):
 
-    #Binarize and find contours
-    _, binary_image = cv2.threshold(without_labels, 1, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if len(contours) == 0:
-        print("No contours were found.")
-    else:
-        #Choose biggest contour
-        largest_contour = max(contours, key=cv2.contourArea)
-        
-        #Draw contour
-        contoured_image = np.zeros_like(without_labels)
-        cv2.drawContours(contoured_image, [largest_contour], -1, 255, 2)
-
-
-    # kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 100))
-    # vertical_lines = cv2.morphologyEx(contoured_image, cv2.MORPH_OPEN, kernel_vertical)
-
-    #Keep vertical line next to muscle in mammography
-    kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 400))
-    vertical_lines = cv2.erode(contoured_image, kernel_vertical)
-
-    #Obtain breast oriented and a flag indicating if the image was mirrored
-    breast_oriented, mirrored = adjust_image_orientation(vertical_lines, without_labels)
-
-
-    # plt.figure(figsize=(20, 20))
-    # plt.subplot(2, 4, 1), plt.title("Sin etiquetas smooth"), plt.imshow(without_labels, cmap='gray')
-    # plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binary_image, cmap='gray')
-    # plt.subplot(2, 4, 3), plt.title("Contornos"), plt.imshow(contoured_image, cmap='gray')
-    # plt.subplot(2, 4, 4), plt.title("Linea vertical"), plt.imshow(vertical_lines, cmap='gray')
-    # plt.subplot(2, 4, 5), plt.title("Mama derecha"), plt.imshow(breast_oriented, cmap='gray')
-    # plt.show()
-
-    return breast_oriented, mirrored
 
 
 
@@ -257,6 +278,8 @@ def region_growing(image, seed_point, threshold=10):
     
     return segmented
 
+
+
 def restore_columns(image, mask, columns_removed):
     """
     Restaura las columnas eliminadas a la izquierda de la imagen para devolver la máscara a las dimensiones originales.
@@ -277,7 +300,9 @@ def restore_columns(image, mask, columns_removed):
 
     return restored_mask
 
-def substract_muscle(without_labels, breast, original):
+def substract_muscle(without_labels, original):
+
+    breast = cv2.bilateralFilter(original, d=50, sigmaColor=40, sigmaSpace=10)
 
 
     cropped_breast, columns_removed = remove_empty_columns(breast)
@@ -329,10 +354,8 @@ def process_images_in_directory(directory_path):
             breast_orientated, mirrored = breast_orientate(without_labels)
 
             
-            breast_filter = cv2.bilateralFilter(breast_orientated, d=50, sigmaColor=40, sigmaSpace=10)
-
             
-            without_muscle = substract_muscle(without_labels, breast_filter, breast_orientated)
+            without_muscle = substract_muscle(without_labels, breast_orientated)
 
             without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored,without_labels)
 
@@ -350,16 +373,15 @@ def process_images_in_directory(directory_path):
             save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
             save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
 
-            plt.figure(figsize=(20, 20))
-            plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
-            plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-            plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_orientated, cmap='gray')
-            plt.subplot(2, 4, 4), plt.title("Filtro"), plt.imshow(breast_filter, cmap='gray')
-            plt.subplot(2, 4, 5), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
-            plt.subplot(2, 4, 6), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
-            plt.subplot(2, 4, 7), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
-            plt.subplot(2, 4, 8), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
-            plt.show()
+            # plt.figure(figsize=(20, 20))
+            # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
+            # plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
+            # plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_orientated, cmap='gray')
+            # plt.subplot(2, 4, 4), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
+            # plt.subplot(2, 4, 5), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
+            # plt.subplot(2, 4, 6), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
+            # plt.subplot(2, 4, 7), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
+            # plt.show()
 
             
 
