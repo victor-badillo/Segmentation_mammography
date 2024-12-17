@@ -25,4 +25,11 @@ if __name__ == "__main__":
     # without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
 
     # without_muscle_smooth = perfil_muscle(without_muscle, mirrored)
+
+
     process_all_directories()
+
+    # CLASIFY
+
+    #extract_ground_truth()
+

@@ -61,3 +61,14 @@ campo.
 
     Resumen de los logros alcanzados.
     Implicaciones del trabajo realizado en el contexto de la detección del cáncer de mama.
+
+
+Primero utilicé un operador morfologico para eliminar las eitquetas y numeros que pueden aperecer en algunas
+imagenes
+
+
+Justificación de usar un contorno no muy redondeado: si redondeo demasiado con open las partes que esten cerca del
+borde se pueden pegar demasiado y puede quedar redondeada parte del músculo
+
+Intente usar primeramente snake en vez de region growing y no funcionó bien, pillaba como bloques la imagen y no conseguia el objetivo
+

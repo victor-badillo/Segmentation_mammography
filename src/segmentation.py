@@ -5,108 +5,8 @@ import os
 from scipy.ndimage import label, find_objects
 from skimage.segmentation import active_contour
 from skimage.draw import polygon
+from utilities import save_image
 
-OUTPUT_IMAGES = "resultados/"
-
-def save_image(image_name, image):
-    img_path = OUTPUT_IMAGES + image_name
-    success = cv2.imwrite(img_path, image)
-
-    if success:
-        print(f"La imagen ==> {image_name} ==> se guardó correctamente.")
-    else:
-        print(f"Error al guardar la imagen ==> {img_path}")
-
-def plot_histogram(imagen):
-
-
-    # Calcular el histograma de la imagen
-    histograma = cv2.calcHist([imagen], [0], None, [256], [0, 256])
-
-    # Mostrar el histograma
-    plt.figure(figsize=(10, 5))
-    plt.title("Histograma de la Imagen")
-    plt.xlabel("Intensidad de píxel")
-    plt.ylabel("Frecuencia")
-    plt.plot(histograma)
-    plt.xlim([0, 256])  # El rango de intensidades de píxel es de 0 a 255
-    plt.show()
-
-
-def visualize_image(title, image):
-    
-    cv2.imshow(title, image )
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-'''
-def perfil_muscle(without_muscle, mirrored):
-    
-    # 1. Binarización
-    _, binary = cv2.threshold(without_muscle, 1, 255, cv2.THRESH_BINARY)
-
-    # 2. Apertura morfológica para eliminar ruido pequeño y separar posibles regiones
-    radius = 10  # Ajusta el radio según sea necesario
-    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
-    clean_smooth = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel_apertura)
-
-    #Quedarse con al region mas grande de clean_smooth
-    largest = keep_largest_object(clean_smooth)
-
-    image = cv2.bitwise_and(without_muscle, largest)
-
-
-    if mirrored == True:
-        image = cv2.flip(image, 1)
-
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Mas grande"), plt.imshow(largest, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Resultado"), plt.imshow(image, cmap='gray')
-    plt.show()
-'''
-
-'''
-def perfil_muscle(without_muscle, mirrored):
-    
-    # 1. Binarización
-    _, binary = cv2.threshold(without_muscle, 1, 255, cv2.THRESH_BINARY)
-    binary = keep_largest_object(binary)
-
-    # 2. Apertura morfológica para eliminar ruido pequeño y separar posibles regiones
-    radius = 10  # Ajusta el radio según sea necesario
-    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
-    clean_smooth = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel_apertura)
-
-    # 3. Cerrar huecos (Closing)
-    radius = 20
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))
-    close = cv2.morphologyEx(clean_smooth, cv2.MORPH_CLOSE, kernel)
-
-    #Quedarse con al region mas grande de clean_smooth
-    largest = keep_largest_object(clean_smooth)
-    largest_close = keep_largest_object(close)
-
-    image = cv2.bitwise_and(without_muscle, largest)
-    close_image =  cv2.bitwise_and(without_muscle, largest_close)
-
-
-    if mirrored == True:
-        image = cv2.flip(image, 1)
-
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Close"), plt.imshow(close, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Mas grande"), plt.imshow(largest, cmap='gray')
-    plt.subplot(2, 4, 6), plt.title("Mas grande close"), plt.imshow(largest_close, cmap='gray')
-    plt.subplot(2, 4, 7), plt.title("Resultado"), plt.imshow(image, cmap='gray')
-    plt.subplot(2, 4, 8), plt.title("Resultado close"), plt.imshow(close_image, cmap='gray')
-    plt.show()
-'''
 
 
 def perfil_muscle(without_muscle, mirrored, without_labels):
@@ -147,71 +47,7 @@ def perfil_muscle(without_muscle, mirrored, without_labels):
 
 
 
-def process_images_in_directory(directory_path):
-    # Listar todas las imágenes en el directorio
-    for filename in os.listdir(directory_path):
-        if filename.endswith(".jpg"):  # Solo procesar archivos .jpg
-            ruta_imagen = os.path.join(directory_path, filename)
 
-            # Cargar la imagen en escala de grises
-            imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
-
-            if imagen is None:
-                print(f"No se pudo cargar la imagen en la ruta: {ruta_imagen}")
-                continue
-            
-            without_labels = pre_process(imagen)
-
-            #breast = breast_orientate(without_labels) 
-
-
-            breast_gauss2, mirrored = breast_orientate(without_labels)
-            breast_filter = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
-
-            
-            without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
-
-            without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored,without_labels)
-
-            surrounded_breast, _ = cv2.findContours(bin_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            largest_contour = max(surrounded_breast, key=cv2.contourArea)
-
-            contoured_image  = cv2.cvtColor(imagen, cv2.COLOR_GRAY2BGR)
-            cv2.drawContours(contoured_image , [largest_contour], -1, (255, 0, 0), 2) 
-
-            #GUARDAR IMAGENES CON CONTORNO E IMAGENES SEGMENTADAS
-
-            #CLASIFICAR
-            
-
-
-
-
-
-            plt.figure(figsize=(20, 20))
-            plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(imagen, cmap='gray')
-            plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-            plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_gauss2, cmap='gray')
-            plt.subplot(2, 4, 4), plt.title("Filtro"), plt.imshow(breast_filter, cmap='gray')
-            plt.subplot(2, 4, 5), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
-            plt.subplot(2, 4, 6), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
-            plt.subplot(2, 4, 7), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
-            plt.subplot(2, 4, 8), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
-            plt.show()
-
-            
-
-            
-
-def process_all_directories():
-    # Recorrer todos los subdirectorios en el directorio base
-    base_directory = "data"
-    for subdir in os.listdir(base_directory):
-        subdir_path = os.path.join(base_directory, subdir)
-        
-        if os.path.isdir(subdir_path):
-            print(f"Procesando imágenes en: {subdir_path}")
-            process_images_in_directory(subdir_path)
 
 
 
@@ -377,64 +213,6 @@ def remove_empty_columns(image):
 
     return cropped_image, first_nonzero_col
 
-def apply_snake(image, columns_removed):
-    """
-    Ajusta un snake en forma de triángulo rectángulo para segmentar el músculo.
-
-    Args:
-        image (np.ndarray): Imagen binaria recortada.
-        columns_removed (int): Número de columnas eliminadas a la izquierda.
-
-    Returns:
-        np.ndarray: Máscara ajustada al músculo con las dimensiones originales.
-    """
-    # Dimensiones de la imagen recortada
-    rows, cols = image.shape
-
-    # Inicializar un triángulo rectángulo pequeño en la esquina superior izquierda
-    triangle = np.zeros_like(image, dtype=np.uint8)
-    
-    # Coordenadas del triángulo
-    r = [20, 20, 30]  # Filas: (20, 20) para el lado horizontal, y (30) para el lado vertical
-    c = [20, 30, 20]  # Columnas: (20, 30) para el lado horizontal, y (20) para el lado vertical
-    
-    # Generar la máscara inicial del triángulo
-    rr, cc = polygon(r, c)
-    triangle[rr, cc] = 1
-
-    # Visualización de la máscara inicial del triángulo (opcional, para depuración)
-    plt.imshow(triangle, cmap='gray')
-    plt.title("Triángulo inicial")
-    plt.show()
-
-    # Aplicar snake (Active Contour)
-    snake = active_contour(
-        image.astype(float),  # Imagen en escala de grises
-        snake=triangle.astype(float),  # Máscara inicial
-        alpha=0.1,  # Peso de suavidad
-        beta=0.5,  # Peso de rigidez
-        gamma=0.01,  # Velocidad de evolución
-    )
-
-    # Crear la máscara resultante con el snake
-    muscle_mask = np.zeros_like(image, dtype=np.uint8)
-    rr = np.round(snake[:, 0]).astype(int)
-    cc = np.round(snake[:, 1]).astype(int)
-
-    # Asegurar que los índices están dentro de los límites
-    rr = np.clip(rr, 0, rows - 1)
-    cc = np.clip(cc, 0, cols - 1)
-
-    muscle_mask[rr, cc] = 255
-
-    visualize_image('mascara',muscle_mask)
-
-    # Restaurar las dimensiones originales añadiendo columnas negras a la izquierda
-    original_shape = (image.shape[0], image.shape[1] + columns_removed)
-    muscle_mask_full = np.zeros(original_shape, dtype=np.uint8)
-    muscle_mask_full[:, columns_removed:] = muscle_mask
-
-    return muscle_mask_full
 
 
 def region_growing(image, seed_point, threshold=10):
@@ -529,31 +307,71 @@ def substract_muscle(without_labels, breast, original):
     return result
 
 
+def process_images_in_directory(directory_path):
+
+    for filename in os.listdir(directory_path):
+
+        if filename.endswith(".jpg"):
+            image_path = os.path.join(directory_path, filename)
+
+            mammography = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+            if mammography is None:
+                print(f"Could not load image: {image_path}")
+                continue
+            
+
+            #Remove labels from mammogram
+
+            without_labels = pre_process(mammography)
 
 
-if __name__ == "__main__":
-
-    # imagen_path = "data/Glandular-graso/mdb072.jpg"
-
-    # image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
-
-    # if image is None:
-    #     raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
-    
-
-    # without_labels = pre_process(image)
-    # #En este punto tengo la imagen sin etiquetas
-
-
-    # breast_gauss2, mirrored = breast_orientate(without_labels)
-    # breast_filter = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
+            breast_gauss2, mirrored = breast_orientate(without_labels)
+            breast_filter = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
 
             
-    # without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
+            without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
 
-    # without_muscle_smooth = perfil_muscle(without_muscle, mirrored)
-    process_all_directories()
+            without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored,without_labels)
 
+            surrounded_breast, _ = cv2.findContours(bin_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            largest_contour = max(surrounded_breast, key=cv2.contourArea)
+
+            contoured_image  = cv2.cvtColor(mammography, cv2.COLOR_GRAY2BGR)
+            cv2.drawContours(contoured_image , [largest_contour], -1, (255, 0, 0), 2) 
+
+            #GUARDAR IMAGENES CON CONTORNO E IMAGENES SEGMENTADAS
+
+            image_name = os.path.basename(image_path)
+            image_name_ext = os.path.splitext(image_name)[0]
+
+            save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
+            save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
+
+            plt.figure(figsize=(20, 20))
+            plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
+            plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
+            plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_gauss2, cmap='gray')
+            plt.subplot(2, 4, 4), plt.title("Filtro"), plt.imshow(breast_filter, cmap='gray')
+            plt.subplot(2, 4, 5), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
+            plt.subplot(2, 4, 6), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
+            plt.subplot(2, 4, 7), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
+            plt.subplot(2, 4, 8), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
+            plt.show()
+
+            
+
+            
+
+def process_all_directories():
+    
+    base_directory = "data"
+    for subdir in os.listdir(base_directory):
+        subdir_path = os.path.join(base_directory, subdir)
+        
+        if os.path.isdir(subdir_path):
+            print(f"Processing images from: {subdir_path}")
+            process_images_in_directory(subdir_path)
 
 
  
