@@ -71,14 +71,14 @@ def remove_labels(image):
     #Image without labels smooth
     final_smooth =  cv2.bitwise_and(image, without_labels_binary_smooth)
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Binarized"), plt.imshow(binarized, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Without Labels Binary"), plt.imshow(without_labels_binary, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Final"), plt.imshow(final, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Binary Smooth"), plt.imshow(without_labels_binary_smooth, cmap='gray')
-    plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(final_smooth, cmap='gray')
-    plt.show()
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 3, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
+    # plt.subplot(2, 3, 2), plt.title("Binarized"), plt.imshow(binarized, cmap='gray')
+    # plt.subplot(2, 3, 3), plt.title("Without Labels Binary"), plt.imshow(without_labels_binary, cmap='gray')
+    # plt.subplot(2, 3, 4), plt.title("Final"), plt.imshow(final, cmap='gray')
+    # plt.subplot(2, 3, 5), plt.title("Binary Smooth"), plt.imshow(without_labels_binary_smooth, cmap='gray')
+    # plt.subplot(2, 3, 6), plt.title("Final Smooth"), plt.imshow(final_smooth, cmap='gray')
+    # plt.show()
 
     return final_smooth
 
@@ -157,26 +157,29 @@ def adjust_image_orientation(image, original):
 
 def breast_orientate(without_labels):
 
-    # Binarizar y encontrar contornos
+    #Binarize and find contours
     _, binary_image = cv2.threshold(without_labels, 1, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     if len(contours) == 0:
-        print("No se encontraron contornos.")
+        print("No contours were found.")
     else:
-        #Elegir el contorno más grande por área
+        #Choose biggest contour
         largest_contour = max(contours, key=cv2.contourArea)
         
-        #Crear una copia de la imagen para dibujar el contorno
+        #Draw contour
         contoured_image = np.zeros_like(without_labels)
         cv2.drawContours(contoured_image, [largest_contour], -1, 255, 2)
 
 
     # kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 100))
     # vertical_lines = cv2.morphologyEx(contoured_image, cv2.MORPH_OPEN, kernel_vertical)
+
+    #Keep vertical line next to muscle in mammography
     kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 400))
     vertical_lines = cv2.erode(contoured_image, kernel_vertical)
 
+    #Obtain breast oriented and a flag indicating if the image was mirrored
     breast_oriented, mirrored = adjust_image_orientation(vertical_lines, without_labels)
 
 
@@ -322,12 +325,14 @@ def process_images_in_directory(directory_path):
             #Remove labels from mammography
             without_labels = remove_labels(mammography)
 
-
-            breast_gauss2, mirrored = breast_orientate(without_labels)
-            breast_filter = cv2.bilateralFilter(breast_gauss2, d=50, sigmaColor=40, sigmaSpace=10)
+            #Orientate all breasts in the same direction
+            breast_orientated, mirrored = breast_orientate(without_labels)
 
             
-            without_muscle = substract_muscle(without_labels, breast_filter, breast_gauss2)
+            breast_filter = cv2.bilateralFilter(breast_orientated, d=50, sigmaColor=40, sigmaSpace=10)
+
+            
+            without_muscle = substract_muscle(without_labels, breast_filter, breast_orientated)
 
             without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored,without_labels)
 
@@ -348,7 +353,7 @@ def process_images_in_directory(directory_path):
             plt.figure(figsize=(20, 20))
             plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
             plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-            plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_gauss2, cmap='gray')
+            plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_orientated, cmap='gray')
             plt.subplot(2, 4, 4), plt.title("Filtro"), plt.imshow(breast_filter, cmap='gray')
             plt.subplot(2, 4, 5), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
             plt.subplot(2, 4, 6), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
