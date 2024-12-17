@@ -9,6 +9,82 @@ from utilities import save_image
 
 
 
+def keep_largest_object(binary_image):
+    """
+    Retains the largest connected component in a binary image.
+
+    Parameters:
+        binary_image (numpy.ndarray): Input binary image where objects have values > 0.
+
+    Returns:
+        numpy.ndarray: Binary mask containing only the largest object, 
+                       with values 0 (background) and 255 (largest object).
+    """
+
+    #Label components
+    labeled_image, num_features = label(binary_image)
+    
+    # Area of each component
+    object_slices = find_objects(labeled_image)
+    areas = [np.sum(labeled_image[obj_slice] == label_id + 1) for label_id, obj_slice in enumerate(object_slices)]
+    
+    #Identify index of biggest component
+    largest_component_idx = np.argmax(areas) + 1  #Labeled objects index start at 1
+
+    #Mask with biggest object
+    largest_object_mask = (labeled_image == largest_component_idx).astype(np.uint8)
+    
+    return largest_object_mask * 255
+
+
+def remove_labels(image):
+    """
+    Removes labels (unwanted small regions or artifacts) from an image, keeping only the largest connected component. 
+    Smooths the resulting region to produce cleaner borders.
+
+    Parameters:
+        image (numpy.ndarray): Input grayscale image.
+
+    Returns:
+        numpy.ndarray: Processed grayscale image with labels removed and borders smoothed.
+    """
+
+    #Binarize image
+    #_, binarized = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, binarized = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
+
+    #Separate regions that could be joined
+    kernel_separate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    binarized = cv2.morphologyEx(binarized, cv2.MORPH_OPEN, kernel_separate)
+
+    #Keep biggest binary object from image
+    without_labels_binary = keep_largest_object(binarized)
+
+    #Image without labels
+    final =  cv2.bitwise_and(image, without_labels_binary)
+
+    #Smooth borders
+    radius = 10 
+    kernel_opening = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))
+    without_labels_binary_smooth = cv2.morphologyEx(without_labels_binary, cv2.MORPH_OPEN, kernel_opening)
+
+    #Image without labels smooth
+    final_smooth =  cv2.bitwise_and(image, without_labels_binary_smooth)
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Binarized"), plt.imshow(binarized, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Without Labels Binary"), plt.imshow(without_labels_binary, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Final"), plt.imshow(final, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Binary Smooth"), plt.imshow(without_labels_binary_smooth, cmap='gray')
+    plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(final_smooth, cmap='gray')
+    plt.show()
+
+    return final_smooth
+
+
+
+
 def perfil_muscle(without_muscle, mirrored, without_labels):
     
     # 1. Binarización
@@ -44,84 +120,6 @@ def perfil_muscle(without_muscle, mirrored, without_labels):
     # plt.show()
 
     return close_image, largest_close
-
-
-
-
-
-
-
-
-def erase_labels(imagen):
-    # Umbralización usando Otsu para encontrar el umbral óptimo
-    _, binarizada = cv2.threshold(imagen, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # Operación de apertura morfológica para eliminar etiquetas
-    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))  # Ajusta el tamaño según el dataset
-    binarizada_sin_etiquetas = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_apertura)
-
-    # Eliminar etiquetas usando bitwise_and
-    sin_etiquetas = cv2.bitwise_and(imagen, binarizada_sin_etiquetas)
-
-    # Mostrar y guardar los resultados
-    plt.figure(figsize=(10, 10))
-    plt.subplot(1, 3, 1), plt.title("Imagen Original"), plt.imshow(imagen, cmap='gray')
-    plt.subplot(1, 3, 2), plt.title("Binarizada con Otsu"), plt.imshow(binarizada, cmap='gray')
-    plt.subplot(1, 3, 3), plt.title("Resultado Sin Etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-    plt.show()
-
-    return sin_etiquetas
-
-
-def keep_largest_object(binary_image):
-    # Etiquetar componentes conectados
-    labeled_image, num_features = label(binary_image)
-    
-    # Encontrar el área de cada componente conectado
-    object_slices = find_objects(labeled_image)
-    areas = [np.sum(labeled_image[obj_slice] == label_id + 1) for label_id, obj_slice in enumerate(object_slices)]
-    
-    # Identificar el índice del componente más grande
-    largest_component_idx = np.argmax(areas) + 1  # Los índices empiezan en 1 para objetos etiquetados
-
-    # Crear una máscara con solo el objeto más grande
-    largest_object_mask = (labeled_image == largest_component_idx).astype(np.uint8)
-    
-    return largest_object_mask * 255
-
-
-def pre_process(image):
-
-    #Aumentar contraste para que otsu capture mejor las regiones
-
-    #_, binarizada = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    _, binarizada = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
-
-    #SEAPARAR POSIBLES REGIONES UNIDAS
-    kernel_separate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))  # Ajusta el tamaño según el dataset
-    binarizada = cv2.morphologyEx(binarizada, cv2.MORPH_OPEN, kernel_separate)
-
-    sin_etiquetas = keep_largest_object(binarizada)
-
-    clean =  cv2.bitwise_and(image, sin_etiquetas)
-
-    radius = 10  # Ajusta el radio según sea necesario
-    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
-    clean_smooth = cv2.morphologyEx(sin_etiquetas, cv2.MORPH_OPEN, kernel_apertura)
-
-    smooth_final =  cv2.bitwise_and(image, clean_smooth)
-
-    # plt.figure(figsize=(20, 20))
-    # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(image, cmap='gray')
-    # plt.subplot(2, 4, 2), plt.title("Binarizada"), plt.imshow(binarizada, cmap='gray')
-    # plt.subplot(2, 4, 3), plt.title("Sin etiquetas"), plt.imshow(sin_etiquetas, cmap='gray')
-    # plt.subplot(2, 4, 4), plt.title("Final"), plt.imshow(clean, cmap='gray')
-    # plt.subplot(2, 4, 5), plt.title("Binary Smooth"), plt.imshow(clean_smooth, cmap='gray')
-    # plt.subplot(2, 4, 6), plt.title("Final Smooth"), plt.imshow(smooth_final, cmap='gray')
-    # plt.show()
-
-
-    return smooth_final
 
 
 
@@ -321,9 +319,8 @@ def process_images_in_directory(directory_path):
                 continue
             
 
-            #Remove labels from mammogram
-
-            without_labels = pre_process(mammography)
+            #Remove labels from mammography
+            without_labels = remove_labels(mammography)
 
 
             breast_gauss2, mirrored = breast_orientate(without_labels)

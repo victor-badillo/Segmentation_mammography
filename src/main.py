@@ -6,12 +6,15 @@ import pandas as pd
 
 if __name__ == "__main__":
 
-    # imagen_path = "data/Glandular-graso/mdb072.jpg"
+    imagen_path = "data/Graso/mdb009.jpg"
 
-    # image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
+    image = cv2.imread(imagen_path, cv2.IMREAD_GRAYSCALE)
 
-    # if image is None:
-    #     raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
+    if image is None:
+        raise FileNotFoundError(f"No se pudo cargar la imagen en la ruta: {imagen_path}")
+    
+    #Remove labels from mammography
+    without_labels = remove_labels(image)
     
 
     # without_labels = pre_process(image)
@@ -27,7 +30,7 @@ if __name__ == "__main__":
     # without_muscle_smooth = perfil_muscle(without_muscle, mirrored)
 
 
-    process_all_directories()
+    #process_all_directories()
 
     # CLASIFY
 
