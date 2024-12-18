@@ -339,19 +339,43 @@ def smooth_muscle(without_muscle, mirrored, without_labels):
     without_muscle_smooth =  cv2.bitwise_and(without_labels, without_muscle_smooth_binary)
 
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 3, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
-    plt.subplot(2, 3, 2), plt.title("Binarized"), plt.imshow(binary, cmap='gray')
-    plt.subplot(2, 3, 3), plt.title("Opening"), plt.imshow(opening_smooth, cmap='gray')
-    plt.subplot(2, 3, 4), plt.title("Closing"), plt.imshow(closing_smooth, cmap='gray')
-    plt.subplot(2, 3, 5), plt.title("Biggest object"), plt.imshow(without_muscle_smooth_binary, cmap='gray')
-    plt.subplot(2, 3, 6), plt.title("Result"), plt.imshow(without_muscle_smooth, cmap='gray')
-    plt.show()
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 3, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
+    # plt.subplot(2, 3, 2), plt.title("Binarized"), plt.imshow(binary, cmap='gray')
+    # plt.subplot(2, 3, 3), plt.title("Opening"), plt.imshow(opening_smooth, cmap='gray')
+    # plt.subplot(2, 3, 4), plt.title("Closing"), plt.imshow(closing_smooth, cmap='gray')
+    # plt.subplot(2, 3, 5), plt.title("Biggest object"), plt.imshow(without_muscle_smooth_binary, cmap='gray')
+    # plt.subplot(2, 3, 6), plt.title("Result"), plt.imshow(without_muscle_smooth, cmap='gray')
+    # plt.show()
 
     return without_muscle_smooth, without_muscle_smooth_binary
 
 
 
+def get_contoured_image(without_muscle_smooth_binary, mammography):
+    """
+    Draws the largest contour from the binary mask onto the original mammogram.
+
+    Args:
+        without_muscle_smooth_binary (np.ndarray): Binary mask representing the smoothed breast region.
+        mammography (np.ndarray): Original mammogram in grayscale.
+
+    Returns:
+        np.ndarray: Mammogram with the largest contour drawn in blue.
+    """
+    #Find all external contours in the binary mask
+    surrounded_breast, _ = cv2.findContours(without_muscle_smooth_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    #Identify the largest contour based on area
+    largest_contour = max(surrounded_breast, key=cv2.contourArea)
+
+    #Convert the grayscale mammogram to a BGR image to allow colored drawings
+    contoured_image = cv2.cvtColor(mammography, cv2.COLOR_GRAY2BGR)
+    
+    #Draw the largest contour in blue with a thickness of 2 pixels
+    cv2.drawContours(contoured_image, [largest_contour], -1, (0, 0, 255), 2) 
+
+    return contoured_image
 
 
 
@@ -384,29 +408,24 @@ def process_images_in_directory(directory_path):
             #Get a smoother mask
             without_muscle_smooth, without_muscle_smooth_binary  = smooth_muscle(without_muscle, mirrored,without_labels)
 
-            surrounded_breast, _ = cv2.findContours(without_muscle_smooth_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            largest_contour = max(surrounded_breast, key=cv2.contourArea)
+            #Get contoured image
+            contoured_image = get_contoured_image(without_muscle_smooth_binary,mammography)
 
-            contoured_image  = cv2.cvtColor(mammography, cv2.COLOR_GRAY2BGR)
-            cv2.drawContours(contoured_image , [largest_contour], -1, (255, 0, 0), 2) 
-
-            #GUARDAR IMAGENES CON CONTORNO E IMAGENES SEGMENTADAS
-
+            #Save segmented images and contoured images
             image_name = os.path.basename(image_path)
             image_name_ext = os.path.splitext(image_name)[0]
+            save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
+            save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
 
-            #save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
-            #save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
-
-            # plt.figure(figsize=(20, 20))
-            # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
-            # plt.subplot(2, 4, 2), plt.title("Sin etiquetas"), plt.imshow(without_labels, cmap='gray')
-            # plt.subplot(2, 4, 3), plt.title("Orientada"), plt.imshow(breast_orientated, cmap='gray')
-            # plt.subplot(2, 4, 4), plt.title("Sin musculo"), plt.imshow(without_muscle, cmap='gray')
-            # plt.subplot(2, 4, 5), plt.title("Sin musculo smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
-            # plt.subplot(2, 4, 6), plt.title("Binaria"), plt.imshow(bin_contour, cmap='gray')
-            # plt.subplot(2, 4, 7), plt.title("Contorno"), plt.imshow(contoured_image, cmap='gray')
-            # plt.show()
+            plt.figure(figsize=(20, 20))
+            plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
+            plt.subplot(2, 4, 2), plt.title("Without labels"), plt.imshow(without_labels, cmap='gray')
+            plt.subplot(2, 4, 3), plt.title("Orientated breast"), plt.imshow(breast_orientated, cmap='gray')
+            plt.subplot(2, 4, 4), plt.title("Without muscle"), plt.imshow(without_muscle, cmap='gray')
+            plt.subplot(2, 4, 5), plt.title("Without muscle smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
+            plt.subplot(2, 4, 6), plt.title("Binarized"), plt.imshow(without_muscle_smooth_binary, cmap='gray')
+            plt.subplot(2, 4, 7), plt.title("Contour"), plt.imshow(cv2.cvtColor(contoured_image, cv2.COLOR_BGR2RGB))
+            plt.show()
 
             
 
