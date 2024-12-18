@@ -274,7 +274,7 @@ def remove_muscle(without_labels, breast_orientated):
     #Image with muscle mask with original dimensions
     muscle_mask_restored = restore_columns(without_labels, muscle_mask, columns_removed)
 
-    #FALTA HACER UN TOP HAT, RELLENAR HUECOS Y APLANAR PICOS
+    #FALTA HACER UN TOP HAT, RELLENAR HUECOS Y APLANAR PICOS, (a lo mejor no es en esta parte y es en el siguiente)
 
     #Breast mask
     _, binary_orientated = cv2.threshold(breast_orientated, 1, 255, cv2.THRESH_BINARY)
@@ -283,75 +283,72 @@ def remove_muscle(without_labels, breast_orientated):
     #Obtain image containing only the breast
     breast = cv2.bitwise_and(breast_orientated, breast_mask)
 
-    plt.figure(figsize=(20, 20))
-    plt.subplot(2, 4, 1), plt.title("Without labels"), plt.imshow(without_labels, cmap='gray')
-    plt.subplot(2, 4, 2), plt.title("Cropedd"), plt.imshow(cropped_breast, cmap='gray')
-    plt.subplot(2, 4, 3), plt.title("Bilateral filter"), plt.imshow(breast_filtered, cmap='gray')
-    plt.subplot(2, 4, 4), plt.title("Muscle mask"), plt.imshow(muscle_mask, cmap='gray')
-    plt.subplot(2, 4, 5), plt.title("Muscle mask restored"), plt.imshow(muscle_mask_restored, cmap='gray')
-    plt.subplot(2, 4, 6), plt.title("Binarized"), plt.imshow(binary_orientated, cmap='gray')
-    plt.subplot(2, 4, 7), plt.title("Breast mask"), plt.imshow(breast_mask, cmap='gray')
-    plt.subplot(2, 4, 8), plt.title("Result"), plt.imshow(breast, cmap='gray')
-    plt.show()
+    # plt.figure(figsize=(20, 20))
+    # plt.subplot(2, 4, 1), plt.title("Without labels"), plt.imshow(without_labels, cmap='gray')
+    # plt.subplot(2, 4, 2), plt.title("Cropedd"), plt.imshow(cropped_breast, cmap='gray')
+    # plt.subplot(2, 4, 3), plt.title("Bilateral filter"), plt.imshow(breast_filtered, cmap='gray')
+    # plt.subplot(2, 4, 4), plt.title("Muscle mask"), plt.imshow(muscle_mask, cmap='gray')
+    # plt.subplot(2, 4, 5), plt.title("Muscle mask restored"), plt.imshow(muscle_mask_restored, cmap='gray')
+    # plt.subplot(2, 4, 6), plt.title("Binarized"), plt.imshow(binary_orientated, cmap='gray')
+    # plt.subplot(2, 4, 7), plt.title("Breast mask"), plt.imshow(breast_mask, cmap='gray')
+    # plt.subplot(2, 4, 8), plt.title("Result"), plt.imshow(breast, cmap='gray')
+    # plt.show()
 
 
     return breast
 
 
 
+def smooth_muscle(without_muscle, mirrored, without_labels):
+    """
+    Smooths the muscle-removed mammogram image by applying morphological operations 
+    to clean noise, fill gaps, and ensure a single connected region.
 
+    Args:
+        without_muscle (np.ndarray): Grayscale image with the muscle region removed.
+        mirrored (bool): Indicates if the original image was mirrored during preprocessing.
+        without_labels (np.ndarray): Original mammogram image without annotations.
 
-
-
-
-def perfil_muscle(without_muscle, mirrored, without_labels):
+    Returns:
+        tuple:
+            - np.ndarray: Smoothed grayscale image with the muscle region removed.
+            - np.ndarray: Binary mask of the smoothed breast region.
+    """
     
-    # 1. Binarización
+    #Binarize
     _, binary = cv2.threshold(without_muscle, 1, 255, cv2.THRESH_BINARY)
     binary = keep_largest_object(binary)
 
-    # 2. Apertura morfológica para eliminar ruido pequeño y separar posibles regiones
-    radius = 10  # Ajusta el radio según sea necesario
-    kernel_apertura = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))  # Ajusta el tamaño según el dataset
-    clean_smooth = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel_apertura)
+    #Opening for eliminating noise and separate regions
+    radius = 10
+    kernel_opening = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))
+    opening_smooth = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel_opening)
 
-    # 3. Cerrar huecos (Closing)
+    #Closing for fill some regions
     radius = 30
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1))
-    close = cv2.morphologyEx(clean_smooth, cv2.MORPH_CLOSE, kernel)
+    closing_smooth = cv2.morphologyEx(opening_smooth, cv2.MORPH_CLOSE, kernel)
 
-    #Quedarse con al region mas grande de clean_smooth
-    largest_close = keep_largest_object(close)
+    #Keep largest binary object after applying morphological operators
+    without_muscle_smooth_binary = keep_largest_object(closing_smooth)
 
+    #Original
     if mirrored == True:
-        largest_close = cv2.flip(largest_close, 1)
+        without_muscle_smooth_binary = cv2.flip(without_muscle_smooth_binary, 1)
 
-    close_image =  cv2.bitwise_and(without_labels, largest_close)
-
-
-    # plt.figure(figsize=(20, 20))
-    # plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
-    # plt.subplot(2, 4, 2), plt.title("Binary"), plt.imshow(binary, cmap='gray')
-    # plt.subplot(2, 4, 3), plt.title("Opening"), plt.imshow(clean_smooth, cmap='gray')
-    # plt.subplot(2, 4, 4), plt.title("Close"), plt.imshow(close, cmap='gray')
-    # plt.subplot(2, 4, 5), plt.title("Mas grande close"), plt.imshow(largest_close, cmap='gray')
-    # plt.subplot(2, 4, 6), plt.title("Resultado close"), plt.imshow(close_image, cmap='gray')
-    # plt.show()
-
-    return close_image, largest_close
+    without_muscle_smooth =  cv2.bitwise_and(without_labels, without_muscle_smooth_binary)
 
 
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 3, 1), plt.title("Original"), plt.imshow(without_muscle, cmap='gray')
+    plt.subplot(2, 3, 2), plt.title("Binarized"), plt.imshow(binary, cmap='gray')
+    plt.subplot(2, 3, 3), plt.title("Opening"), plt.imshow(opening_smooth, cmap='gray')
+    plt.subplot(2, 3, 4), plt.title("Closing"), plt.imshow(closing_smooth, cmap='gray')
+    plt.subplot(2, 3, 5), plt.title("Biggest object"), plt.imshow(without_muscle_smooth_binary, cmap='gray')
+    plt.subplot(2, 3, 6), plt.title("Result"), plt.imshow(without_muscle_smooth, cmap='gray')
+    plt.show()
 
-
-
-
-
-
-
-
-
-
-
+    return without_muscle_smooth, without_muscle_smooth_binary
 
 
 
@@ -384,9 +381,10 @@ def process_images_in_directory(directory_path):
             #Remove muscle from mammography
             without_muscle = remove_muscle(without_labels, breast_orientated)
 
-            without_muscle_smooth, bin_contour = perfil_muscle(without_muscle, mirrored,without_labels)
+            #Get a smoother mask
+            without_muscle_smooth, without_muscle_smooth_binary  = smooth_muscle(without_muscle, mirrored,without_labels)
 
-            surrounded_breast, _ = cv2.findContours(bin_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            surrounded_breast, _ = cv2.findContours(without_muscle_smooth_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             largest_contour = max(surrounded_breast, key=cv2.contourArea)
 
             contoured_image  = cv2.cvtColor(mammography, cv2.COLOR_GRAY2BGR)
