@@ -379,57 +379,59 @@ def get_contoured_image(without_muscle_smooth_binary, mammography):
 
 
 
+def process_one_mamography(directory_path, filename):
+
+    image_path = os.path.join(directory_path, filename)
+
+    mammography = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+    if mammography is None:
+        print(f"Could not load image: {image_path}")
+        return
+            
+
+    #Remove labels from mammography
+    without_labels = remove_labels(mammography)
+
+    #Orientate all breasts in the same direction
+    breast_orientated, mirrored = breast_orientate(without_labels)
+
+    #Remove muscle from mammography
+    without_muscle = remove_muscle(without_labels, breast_orientated)
+
+    #Get a smoother mask
+    without_muscle_smooth, without_muscle_smooth_binary  = smooth_muscle(without_muscle, mirrored,without_labels)
+
+    #Get contoured image
+    contoured_image = get_contoured_image(without_muscle_smooth_binary,mammography)
+
+    #Save segmented images and contoured images
+    image_name = os.path.basename(image_path)
+    image_name_ext = os.path.splitext(image_name)[0]
+    save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
+    save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
+
+    plt.figure(figsize=(20, 20))
+    plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
+    plt.subplot(2, 4, 2), plt.title("Without labels"), plt.imshow(without_labels, cmap='gray')
+    plt.subplot(2, 4, 3), plt.title("Orientated breast"), plt.imshow(breast_orientated, cmap='gray')
+    plt.subplot(2, 4, 4), plt.title("Without muscle"), plt.imshow(without_muscle, cmap='gray')
+    plt.subplot(2, 4, 5), plt.title("Without muscle smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
+    plt.subplot(2, 4, 6), plt.title("Binarized"), plt.imshow(without_muscle_smooth_binary, cmap='gray')
+    plt.subplot(2, 4, 7), plt.title("Contour"), plt.imshow(cv2.cvtColor(contoured_image, cv2.COLOR_BGR2RGB))
+    plt.show()  
 
 
 
+        
 def process_images_in_directory(directory_path):
 
     for filename in os.listdir(directory_path):
 
         if filename.endswith(".jpg"):
-            image_path = os.path.join(directory_path, filename)
 
-            mammography = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-
-            if mammography is None:
-                print(f"Could not load image: {image_path}")
-                continue
-            
-
-            #Remove labels from mammography
-            without_labels = remove_labels(mammography)
-
-            #Orientate all breasts in the same direction
-            breast_orientated, mirrored = breast_orientate(without_labels)
-
-            #Remove muscle from mammography
-            without_muscle = remove_muscle(without_labels, breast_orientated)
-
-            #Get a smoother mask
-            without_muscle_smooth, without_muscle_smooth_binary  = smooth_muscle(without_muscle, mirrored,without_labels)
-
-            #Get contoured image
-            contoured_image = get_contoured_image(without_muscle_smooth_binary,mammography)
-
-            #Save segmented images and contoured images
-            image_name = os.path.basename(image_path)
-            image_name_ext = os.path.splitext(image_name)[0]
-            save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
-            save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
-
-            plt.figure(figsize=(20, 20))
-            plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
-            plt.subplot(2, 4, 2), plt.title("Without labels"), plt.imshow(without_labels, cmap='gray')
-            plt.subplot(2, 4, 3), plt.title("Orientated breast"), plt.imshow(breast_orientated, cmap='gray')
-            plt.subplot(2, 4, 4), plt.title("Without muscle"), plt.imshow(without_muscle, cmap='gray')
-            plt.subplot(2, 4, 5), plt.title("Without muscle smooth"), plt.imshow(without_muscle_smooth, cmap='gray')
-            plt.subplot(2, 4, 6), plt.title("Binarized"), plt.imshow(without_muscle_smooth_binary, cmap='gray')
-            plt.subplot(2, 4, 7), plt.title("Contour"), plt.imshow(cv2.cvtColor(contoured_image, cv2.COLOR_BGR2RGB))
-            plt.show()
-
-            
-
-            
+            process_one_mamography(directory_path, filename)
+  
 
 def process_all_directories():
     
