@@ -11,7 +11,7 @@ def save_image(image_name, image):
     else:
         print(f"Error al guardar la imagen ==> {img_path}")
 
-def plot_histogram(imagen):
+def plot_histogram(imagen, title):
 
 
     # Calcular el histograma de la imagen
@@ -19,7 +19,7 @@ def plot_histogram(imagen):
 
     # Mostrar el histograma
     plt.figure(figsize=(10, 5))
-    plt.title("Histograma de la Imagen")
+    plt.title(title)
     plt.xlabel("Intensidad de píxel")
     plt.ylabel("Frecuencia")
     plt.plot(histograma)
