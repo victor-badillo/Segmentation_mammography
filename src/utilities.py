@@ -7,23 +7,20 @@ def save_image(image_name, image):
     success = cv2.imwrite(img_path, image)
 
     if success:
-        print(f"La imagen ==> {image_name} ==> se guardó correctamente.")
+        print(f"Image ==> {image_name} ==> was correctly saved.")
     else:
-        print(f"Error al guardar la imagen ==> {img_path}")
+        print(f"Error saving image ==> {img_path}")
 
 def plot_histogram(imagen, title):
 
+    histogram = cv2.calcHist([imagen], [0], None, [256], [0, 256])
 
-    # Calcular el histograma de la imagen
-    histograma = cv2.calcHist([imagen], [0], None, [256], [0, 256])
-
-    # Mostrar el histograma
     plt.figure(figsize=(10, 5))
     plt.title(title)
-    plt.xlabel("Intensidad de píxel")
-    plt.ylabel("Frecuencia")
-    plt.plot(histograma)
-    plt.xlim([0, 256])  # El rango de intensidades de píxel es de 0 a 255
+    plt.xlabel("Intensity from pixel")
+    plt.ylabel("Frecuency")
+    plt.plot(histogram)
+    plt.xlim([0, 256]) 
     plt.show()
 
 
