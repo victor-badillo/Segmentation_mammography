@@ -1,7 +1,5 @@
 from segmentation import *
 from classification import *
-import pandas as pd
-
 
 
 if __name__ == "__main__":
@@ -16,5 +14,4 @@ if __name__ == "__main__":
     #extract_ground_truth()
 
     classify_all_images('results/segmentations', 'ground_truth.csv')
-    #probar('results/segmentations')
 
