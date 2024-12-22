@@ -20,55 +20,85 @@ Estas tareas son cruciales para facilitar el diagnóstico médico y priorizar ca
 El trabajo se basará en un subconjunto de imágenes del mini-MIAS database, una base de datos reconocida en este 
 campo.
 
-2. Esquema Global del Método
-
-    Descripción general del enfoque utilizado para resolver el problema.
-    Diagrama de flujo (si es útil para visualizar los pasos principales).
-
-3. Subproblemas y Soluciones
-3.1. Segmentación del área de tejido mamario
-
-    Problema identificado: Necesidad de eliminar la zona del músculo y segmentar el área relevante del tejido.
-    Metodologías consideradas:
-        Ejemplo: Umbralización, detección de bordes, segmentación basada en regiones.
-        Justificación de por qué se han probado estas técnicas.
-    Metodología seleccionada:
-        Detalle de la técnica implementada y su funcionamiento.
-        Resultados obtenidos y análisis (cuantitativo/cualitativo).
-
-3.2. Clasificación de la densidad del tejido mamario
-
-    Problema identificado: Clasificar el tejido en glandular-denso, glandular-graso y graso.
-    Metodologías consideradas:
-        Ejemplo: Modelos basados en aprendizaje automático (SVM, KNN) o métricas estadísticas.
-        Justificación de las opciones exploradas.
-    Metodología seleccionada:
-        Descripción de la técnica implementada y su justificación.
-        Resultados obtenidos y análisis (cuantitativo/cualitativo).
-
-4. Evaluación de Resultados
-
-    Resumen de los resultados obtenidos en ambas etapas del proyecto.
-    Comparación de resultados esperados frente a resultados reales.
-    Criterios de evaluación utilizados.
-
-5. Identificación de Problemas y Propuestas de Mejora
-
-    Problemas encontrados: Dificultades en el procesamiento o la clasificación.
-    Propuestas de mejora: Posibles cambios en las técnicas o herramientas que podrían optimizar los resultados.
-
-6. Conclusiones
-
-    Resumen de los logros alcanzados.
-    Implicaciones del trabajo realizado en el contexto de la detección del cáncer de mama.
 
 
-Primero utilicé un operador morfologico para eliminar las eitquetas y numeros que pueden aperecer en algunas
-imagenes
+2.- Segmentación del área mamaria.
 
+Para este primer paso del método computacional en el que queremos acabar con la parte mamaria segmentada y nada más
+en la imagen, debemos eliminar los artefactos existentes. Al observar las imagenes de prueba, se puede observar que
+unas cuantas tienen algunos números, etiquetas o símbolos. El primer paso será eliminar estos artefactos.
+
+Para ello el primer método consiste en binarizar las imagenes. Para ello primeramente binarización mediante el método
+de Otsu podría parecer una buena opción ya que lo que se quiere obtener es "todo", es decir, objetos y fondo. Al tener
+cierto nivel de gris superior a 0 y que los bordes de las mamas y las etiquetas tienes niveles de gris parecdios, sucede
+la problemática de una binarización incorrecta, tratando como objeto parte del fondo. Al querer obtener un todo lo visible,
+se procede a binarizar mediante un umbral con nivel de gris bajo cercano a 0. Hecho esto, una operador morfologico 
+de apertura es conveniente para separar posibles regiones unidas entre la mama y alguna etiqueta cercana. Se tiene el
+conocimiento de que la parte de la mama unida al músculo siempre va a ser el objeto más grande en la imagen, por lo que
+esto se convierte en el criterio para quedarse solo con la parte requerida. Finalmente se redondean los bordes de este objeto
+y se interseca con la imagen original para obtener esta sin artefactos.
+
+En este punto ya se pueden emmpezar con la parte de eliminar el músculo. Antes de aportar la solución desarrollada finalmente,
+otros métodos se consideraron como utilizar el algoritmo de snake para obtener la región del músculo y eliminar esta posteriormente
+pero al ser los bordes no muy claros no se obtenían buenos resultados. Otra solución en este apartado a considerar fue la
+utilización de bordes para unir estos bordes del músculo sabiendo que siguen una curva. El problema de esta solución
+recaía en que no todos los músculo tenían la misma curva, algunos son más rectos y otros más curvos y alargados y además
+los bordes al no ser muy claros no se capturan correctamente. Aunque se podría pensar en aumentar el contraste de bordes esto
+sigue sin ser viable por la semejanza de brillo entre el músculo y del tejido mamario dependiendo del tipo.
+
+
+Utilizando el conocimiento sobre el dominio y el área de trabajo, se puede aportar una solución que consiste en obtener la máscara del músculo para después eliminarla a la
+imagen para quedarse solo con la parte mamaria. Para ello se sabe que la parte muscular tiene más brillo que la mama y valores
+de gris más homogeneos. El crecimiento de regiones utilizando los niveles de gris es la solución propuesta. Para ello se ha de
+colocar una primera semilla para la región.
+
+
+Esto se convierte en otro subproblema, las imagenes de prueba consiste en mamografias laterales desde los perfiles derecho e
+izquierdo, por lo que la parte del músculo nunca estará en la misma zona. Debido a esto el siguiente método propuesto consiste
+en orientar todas las mamografias en la misma dirección (perfil izquierdo), para después recortar la imagen por la parte izquierda
+y colocar la semilla en la esquina superior izquierda, donde estará el músculo siempre. Para conseguir esto, se obtiene el contorno
+de la imagen en este punto, se aplica un operador morfológico para obtener solo la línea vertical de la mamografia. Se busca el
+índide del primer pixel encontrado y dependiendo de su posición se gira la imagen o no y se recortan las columnas a la izquierda
+de la imagen centrada ya que tenemos el conocimiento de que las imágenes están colocadas así.
+
+Ahora ya se podría empezar a emplear el crecimiento de regiones, pero tras probar resultados en este paso se observó que es necesario
+homogeneizar aún más la parte muscular y a poder ser mantener bordes. Primeramente se intento conseguir utilizando un suavizado guassiano
+pero al tener que mantener bordes no parece una buena opción ya que se mezcla con el tejido mamario y puede hacer que el crecimiento de
+regiones funcione incorrectamente. Un filtro bilateral parece más adecuado ya que permite homogeneizar manteniendo los bordes.
+
+En este punto de aplica el crecimiento de regiones, se restuaran las dimensiones originales, y con la máscara obtenida se resta a la imagen. Tras esto, al tener el problema de
+tener imagenes con tejido mamario con un brillo semejante al músculo, se hace un paso intermedio en el que se redondea la máscara del
+tejido mamario y se devuelve a su orientación original.
+
+Finalmente se ha obtenido la máscara que se quería, de la que se obtiene el contorno y se superpone sobre la imagen original para observar
+el resultado tras el procedimiento.
+
+Estas imagenes y las imagenes segmentadas se guardan en los subdirectorios de results para estas imagenes.
+
+
+
+3.- Clasificación del tejido interior de la región mamaria.
+
+
+El segundo de los objetivos de este método computacional
+
+
+
+4.- Evaluación de resultados
+
+
+5.- Consideraciones
+
+Para las subpartes del problema se ha dejado comentado el código que imprime las gráficas con los subpasos de cada uno de
+los subproblemas en caso de querer visualizar mejor el funcionamiento de cada método.
 
 Justificación de usar un contorno no muy redondeado: si redondeo demasiado con open las partes que esten cerca del
-borde se pueden pegar demasiado y puede quedar redondeada parte del músculo
+borde se pueden pegar demasiado al borde la imagen creando un borde que no corresponde.
 
-Intente usar primeramente snake en vez de region growing y no funcionó bien, pillaba como bloques la imagen y no conseguia el objetivo
+
+6.- Indentificación de problemas y posibles mejoras
+
+
+
+
 

@@ -48,7 +48,6 @@ def remove_labels(image):
     """
 
     #Binarize image
-    #_, binarized = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     _, binarized = cv2.threshold(image, 20, 255, cv2.THRESH_BINARY)
 
     #Separate regions that could be joined
@@ -273,8 +272,6 @@ def remove_muscle(without_labels, breast_orientated):
 
     #Image with muscle mask with original dimensions
     muscle_mask_restored = restore_columns(without_labels, muscle_mask, columns_removed)
-
-    #FALTA HACER UN TOP HAT, RELLENAR HUECOS Y APLANAR PICOS, (a lo mejor no es en esta parte y es en el siguiente)
 
     #Breast mask
     _, binary_orientated = cv2.threshold(breast_orientated, 1, 255, cv2.THRESH_BINARY)
