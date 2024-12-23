@@ -402,11 +402,13 @@ def process_one_mamography(directory_path, filename):
     #Get contoured image
     contoured_image = get_contoured_image(without_muscle_smooth_binary,mammography)
 
-    #Save segmented images and contoured images
+    #Save segmented images and contoured images and masks
     image_name = os.path.basename(image_path)
     image_name_ext = os.path.splitext(image_name)[0]
     save_image('results/segmentations/' + f'{image_name_ext}_sgmt.jpg',without_muscle_smooth )
     save_image('results/contourns/' + f'{image_name_ext}_cnt.jpg',contoured_image )
+    save_image('results/masks/' + f'{image_name_ext}_msk.jpg',without_muscle_smooth_binary )
+
 
     plt.figure(figsize=(20, 20))
     plt.subplot(2, 4, 1), plt.title("Original"), plt.imshow(mammography, cmap='gray')
