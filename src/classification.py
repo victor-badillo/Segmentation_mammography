@@ -153,6 +153,8 @@ def classify_all_images(segmentation_dir, ground_truth_file):
                 # Get true class
                 true_class = class_mapping[ground_truth_dict[image_id]]
 
+                print(image_id, '   TRUE CLASS: ' + true_class, '\tPREDICTED CLASS: ' + predicted_class)
+
                 # Store in lists
                 y_true.append(true_class)
                 y_pred.append(predicted_class)
