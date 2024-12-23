@@ -2,7 +2,6 @@ import os
 import cv2
 import numpy as np
 import pandas as pd
-from utilities import visualize_image
 
 def calculate_interregion_contrast(image, mask):
     """
@@ -47,41 +46,41 @@ def validate_segmentations(data_dir, segmentation_dir):
     """
     results = []
 
-    # Iterate through tissue type subdirectories
+    #Iterate through tissue type subdirectories
     for tissue_type in os.listdir(data_dir):
         tissue_path = os.path.join(data_dir, tissue_type)
         if not os.path.isdir(tissue_path):
             continue
 
-        # Iterate through images in the tissue subdirectory
+        #Iterate through images in the tissue subdirectory
         for filename in os.listdir(tissue_path):
             if filename.endswith('.jpg'):
-                # Get paths for the original and segmented images
+                #Get paths for the original and segmented images
                 image_id = filename.split('.')[0]
                 original_path = os.path.join(tissue_path, filename)
                 segmented_path = os.path.join(segmentation_dir, f"{image_id}_msk.jpg")
 
-                # Check if the corresponding segmented image exists
+                #Check if the corresponding segmented image exists
                 if not os.path.exists(segmented_path):
                     print(f"Warning: Segmentation not found for {filename}")
                     continue
 
-                # Load the original and segmented images
+                #Load the original and segmented images
                 original_image = cv2.imread(original_path, cv2.IMREAD_GRAYSCALE)
                 segmented_mask = cv2.imread(segmented_path, cv2.IMREAD_GRAYSCALE)
 
 
-                # Calculate interregion contrast
+                #Calculate interregion contrast
                 contrast = calculate_interregion_contrast(original_image, segmented_mask)
 
-                # Append results
+                #Append results
                 results.append({
                     'Image_ID': image_id,
                     'Tissue_Type': tissue_type,
                     'Interregion_Contrast': contrast
                 })
 
-    # Create a DataFrame with the results
+    #Create a DataFrame with the results
     results_df = pd.DataFrame(results)
     return results_df
 
